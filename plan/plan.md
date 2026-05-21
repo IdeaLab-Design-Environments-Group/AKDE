@@ -4,6 +4,12 @@
 **Authority:** Liu, Chuang, Sang, Sabin, DETC2019-97557 (edge-molecule inverse process)  
 **Last updated:** 2026-05-20
 
+### Changes — 2026-05-21
+
+- **Valid κ range clarified (§2.6.3).** Any finite κ = H/R > 0 is geometrically valid, including κ > 1 (ψ > 45°): a taller apex lengthens the slant edge `s = √(R²+H²)` (always > H, so the apex is always reachable) and narrows the faces (η → 0). No upper H bound except the degenerate κ → ∞ limit; C1–C6 verified passing up to κ = 50.
+- **Corrected degenerate-apex limit.** The §2.6.3 warning said `η → π`; the real tall-pyramid degenerate limit is **`η → 0`** (sliver faces as κ → ∞).
+- **C5 trip point corrected (§10).** C5 (`w ≤ L`) first fails near κ ≈ 1.45 (N=3) to ≈1.75 (N=12), not the κ ≈ 1.3 stated earlier — κ = 1 is just ψ = 45°, not a fold-overlap boundary.
+
 ### Changes — 2026-05-20
 
 - **Default template is now N = 6** (hexagonal pyramid), L = 100 mm, H = R = 100 mm (ψ = 45°, κ = 1). N = 4 stays as the canonical worked example below.
@@ -252,7 +258,7 @@ The UI exposes one scalar **\(K_{\mathrm{tot}}\)** = **\(H\)**: **vertical** ape
 
 | Step | Formula / rule |
 |------|----------------|
-| **Valid range (input)** | \(H > 0\). Convex pyramid requires finite \(H/R\); derived \(\psi = \arctan(H/R) \in (0°,90°)\). Reject \(H \le 0\) in the inputs panel (error message), not as constraint C7. |
+| **Valid range (input)** | \(H > 0\). Any finite \(\kappa = H/R > 0\) is valid, **including \(\kappa > 1\)** (\(\psi > 45°\)): a taller apex only lengthens the slant edge \(s=\sqrt{R^2+H^2}\) — which is **always** \(> H\), so the apex is always reachable — and narrows the faces (\(\eta \to 0\)). No upper \(H\) bound except the degenerate \(\kappa \to \infty\) limit; \(\psi = \arctan(H/R) \in (0°,90°)\). Reject \(H \le 0\) in the inputs panel (error message), not as constraint C7. |
 | **Base radius** | \(\boxed{\; R = L / (2\sin(\pi/N)) \;}\) (unchanged). |
 | **Derived elevation** | \(\boxed{\; \psi_{\mathrm{rad}} = \arctan(H/R) \;}\); display \(\psi\) in degrees via \(\psi_{\mathrm{deg}} = \psi_{\mathrm{rad}} \cdot 180/\pi\) and/or radians (read-only). |
 | **Read-only \(\kappa\)** | \(\kappa = H/R = \tan(\psi_{\mathrm{rad}})\) (dimensionless). |
@@ -260,7 +266,7 @@ The UI exposes one scalar **\(K_{\mathrm{tot}}\)** = **\(H\)**: **vertical** ape
 
 **Display (read-only):** \(\psi\) (deg and/or rad), \(\kappa\), \(\eta\), \(\delta_{\mathrm{apex}}\), \(\theta\), \(\tau\). Note: \(\delta_{\mathrm{apex}} \neq K_{\mathrm{tot}}\) (input is \(H\), not defect).
 
-**Warnings:** \(H \le 0\); \(\theta \notin (-\pi,\pi)\); \(\eta\) or \(\theta\) out of expected range; \(\eta \to \pi\) (degenerate apex — optional upper bound on \(H\)); derived \(\sum_i \delta_i\) approaching \(4\pi\) for genus-0 education.
+**Warnings:** \(H \le 0\); \(\theta \notin (-\pi,\pi)\); \(\eta\) or \(\theta\) out of expected range; \(\eta \to 0\) (\(\kappa \to \infty\): sliver faces, the tall-pyramid degenerate limit — optional upper bound on \(H\)); derived \(\sum_i \delta_i\) approaching \(4\pi\) for genus-0 education.
 
 **Future (not v1):** alternate proxies (solid angle \(\Omega_{\mathrm{apex}}\), cap excess) would require a separate input mode — not the \(K_{\mathrm{tot}}\) field in v1.
 
@@ -590,7 +596,7 @@ Assume **v1:** user \(K_{\mathrm{tot}} = H\) is **vertical altitude** (**mm**) a
 ### 9.2 Automated tests
 
 - `geometry.test.ts` — table above  
-- `constraints.test.ts` — C1–C6 checklist ids; C5 fails for tall (κ>1) pyramids, C6 for thick material  
+- `constraints.test.ts` — C1–C6 checklist ids; C5 fails for sufficiently tall pyramids (κ ≳ 1.5, N-dependent; test uses κ=2), C6 for thick material  
 - `validation.test.ts` — \(H \le 0\) input rejection  
 - `pattern.test.ts` — apex-centered fan: \(N\) triangle bases of length \(L\), \(N\) molecule outer chords of length \(w\), 2\(N\)-gon boundary alternating \(L\) and \(w\), folds/cuts attached to the molecule geometry, support for \(N=3,4,6\)  
 - Snapshot: SVG path `d` attributes for \(N=6\), \(L=100\ \mathrm{mm}\), \(K_{\mathrm{tot}}=H=100\ \mathrm{mm}\) (\(\psi=45°\), \(\theta\approx 0.324\) rad); coordinates in mm
@@ -613,7 +619,7 @@ Assume **v1:** user \(K_{\mathrm{tot}} = H\) is **vertical altitude** (**mm**) a
 | C5 | AKDE | \(w \le L\) (molecule tucks without protruding past its faces) |
 | C6 | AKDE | \(T\tan(\gamma/2) \le s - r_{\mathrm{apex}}\) (dihedral relief fits the molecule slant) |
 
-**C5/C6 are AKDE proxies** (DETC names them, no closed form) — thresholds are tunable modeling choices. C5 surfaces fold overlap for tall pyramids (\(\kappa \gtrsim 1.3\) where \(w>L\)); C6 surfaces thick-material / near-flat cases. **Major/minor cuts still rendered** in `pattern.ts` per §6. **Not in v1 UI:** C8 (base compatibility — lateral-only topology). **C7 removed:** \(H>0\) enforced as **input validation** (error under apex-height field; pattern/derived cleared when invalid).
+**C5/C6 are AKDE proxies** (DETC names them, no closed form) — thresholds are tunable modeling choices. C5 (\(w \le L\)) surfaces fold overlap only for genuinely tall pyramids: \(w/L = \sqrt{1+\kappa^2}\sin(\theta/2)/\sin(\pi/N)\) is ~0.4–0.6 at \(\kappa=1\) and first reaches 1 at \(\kappa \approx 1.45\) (N=3) up to \(\approx 1.75\) (N=12) — so a band of \(\kappa>1\) still passes (κ=1 is just ψ=45°, not a fold-overlap boundary). C6 surfaces thick-material / near-flat cases. **Major/minor cuts still rendered** in `pattern.ts` per §6. **Not in v1 UI:** C8 (base compatibility — lateral-only topology). **C7 removed:** \(H>0\) enforced as **input validation** (error under apex-height field; pattern/derived cleared when invalid).
 
 **Input validation (not checklist):** \(K_{\mathrm{tot}}=H > 0\) mm — message: “Apex height must be greater than 0 mm”; \(T > 0\) mm — message: “Material thickness must be greater than 0 mm”.
 
