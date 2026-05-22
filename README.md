@@ -13,6 +13,8 @@ npm run dev
 
 Open the URL Vite prints (default `http://localhost:5173`). Edit **N**, **L**, **L₀**, **H**, and **T** in the inputs panel; derived values, constraints (C1–C6), and the SVG pyramid fan update live.
 
+**Export:** the header **Export** button opens a modal with cut / score / both previews and **Export as SVG**, which downloads a `.zip` containing two registered, mm-sized SVGs in one folder — `…-cut.svg` (outline + cuts, black) and `…-score.svg` (valley creases + polygon slant edges, blue) — ready for a Cricut (set the blue layer to *Score*, black to *Cut*).
+
 ## Scripts
 
 | Command | Description |

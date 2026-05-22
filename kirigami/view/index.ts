@@ -6,3 +6,4 @@ export {
   type PatternSegment,
   type PatternStrokeRole,
 } from "./pattern-canvas.js";
+export { ExportModal, type ExportProvider } from "./export-modal.js";

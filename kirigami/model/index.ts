@@ -54,6 +54,21 @@ export type {
 } from "./pattern.js";
 
 export {
+  buildCricutSvgFiles,
+  buildCricutZip,
+  buildCricutPreviews,
+  buildExportPayload,
+  CUT_COLOR,
+  SCORE_COLOR,
+} from "./svg-export.js";
+export type {
+  CricutSvgFile,
+  ExportArchive,
+  CricutPreviews,
+  ExportPayload,
+} from "./svg-export.js";
+
+export {
   CONSTRAINT_EPS,
   evaluateC1,
   evaluateC2,

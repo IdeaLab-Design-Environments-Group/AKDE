@@ -194,6 +194,13 @@ Invalid inputs short-circuit the pipeline: derived output and pattern output are
     - clipped molecule fill polygons
   - This file is the rendering geometry boundary: it should consume derived state, not recalculate the theory independently.
 
+- [kirigami/model/svg-export.ts](/Users/emredayangac/Documents/AKDE/kirigami/model/svg-export.ts)
+  - Cricut export. Splits the net into a **cut** layer (`boundary` + `cut`, black) and a **score** layer (`fold` valley creases + each polygon's two slant side edges, blue).
+  - `buildCricutSvgFiles(net)` → two mm-sized SVGs sharing one `viewBox`; `buildCricutZip(net)` packs them under a folder into a `.zip`; `buildCricutPreviews(net)` → cut/score/both thumbnails; `buildExportPayload(net)` bundles previews + archive.
+
+- [kirigami/model/zip.ts](/Users/emredayangac/Documents/AKDE/kirigami/model/zip.ts)
+  - Tiny dependency-free ZIP writer (STORE / no compression) with CRC32. Pure: returns `Uint8Array`.
+
 - [kirigami/model/index.ts](/Users/emredayangac/Documents/AKDE/kirigami/model/index.ts)
   - Barrel export for the model layer.
   - Keeps imports simpler for tests and app code.
@@ -225,6 +232,10 @@ Invalid inputs short-circuit the pipeline: derived output and pattern output are
   - Renders the SVG pattern from `PatternNet`.
   - Applies role-based CSS classes such as `stroke-polygon` and `stroke-fold`.
   - Contains no geometry math.
+
+- [kirigami/view/export-modal.ts](/Users/emredayangac/Documents/AKDE/kirigami/view/export-modal.ts)
+  - The header **Export** button and its modal overlay.
+  - On open, renders the cut/score/both previews from the provider's `ExportPayload`; the single action downloads the `.zip` archive. DOM only — no geometry.
 
 - [kirigami/view/index.ts](/Users/emredayangac/Documents/AKDE/kirigami/view/index.ts)
   - Barrel export for the view layer.
@@ -441,6 +452,7 @@ The current implementation is intentionally v1-scoped:
 - only the regular `N`-gon pyramid template is implemented (default N = 6)
 - C1-C6 are exposed as constraints (C5 fold overlap and C6 cut-vs-dihedral are AKDE proxies, not exact fold-collision simulation; C8 still omitted)
 - the app includes material-thickness-driven major-cut sizing and the `fold-reach` minor cut (penetration tied to `rApex`), plus an `outerEdgeLength` net control
+- export is Cricut-only: a `.zip` of two registered SVGs (cut + score) via a built-in STORE-method ZIP writer; no other machine targets or gcode
 - there is no framework state manager, router, or persistence layer
 
 That simplicity is useful. Preserve it unless a change clearly earns the extra complexity.

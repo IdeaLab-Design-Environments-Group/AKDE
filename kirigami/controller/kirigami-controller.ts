@@ -1,6 +1,7 @@
 import { computeState, defaultInputs } from "../model/geometry.js";
 import { evaluateConstraints } from "../model/constraints.js";
 import { buildPatternNet } from "../model/pattern.js";
+import { buildExportPayload, type ExportPayload } from "../model/svg-export.js";
 import {
   APEX_HEIGHT_ERROR,
   MATERIAL_THICKNESS_ERROR,
@@ -42,6 +43,12 @@ export class KirigamiController {
 
   getConstraints(): ConstraintState[] {
     return this.constraints;
+  }
+
+  /** Export payload (cut/score/both previews + the zip archive); null if inputs are invalid. */
+  getExportPayload(): ExportPayload | null {
+    if (!this.state) return null;
+    return buildExportPayload(buildPatternNet(this.state));
   }
 
   recompute(): void {

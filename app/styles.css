@@ -14,6 +14,10 @@ body {
 }
 
 .app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   padding: 0.75rem 1rem;
   border-bottom: 1px solid #ccc;
 }
@@ -257,4 +261,132 @@ body {
     border-right: none;
     border-bottom: 1px solid #ddd;
   }
+}
+
+/* Export button + modal */
+.export-trigger {
+  font: inherit;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #1741c4;
+  background: #1f6feb;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.export-trigger:hover {
+  background: #1858c2;
+}
+
+.export-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.export-overlay[hidden] {
+  display: none;
+}
+
+.export-modal {
+  width: min(560px, 92vw);
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.export-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  background: #1f6feb;
+  color: #fff;
+}
+
+.export-modal-title {
+  font-weight: 600;
+}
+
+.export-modal-close {
+  border: none;
+  background: none;
+  color: #fff;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+
+.export-modal-body {
+  padding: 1.25rem;
+}
+
+.export-squares {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.export-preview {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.export-preview figcaption {
+  font-size: 0.8rem;
+  color: #444;
+}
+
+.export-square {
+  width: 110px;
+  height: 110px;
+  background: #fff;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  padding: 6px;
+}
+
+.export-square svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.export-svg-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.export-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #e2e2e2;
+}
+
+.export-svg-btn {
+  font: inherit;
+  padding: 0.45rem 1rem;
+  border: 1px solid #1741c4;
+  background: #1f6feb;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.export-svg-btn:hover {
+  background: #1858c2;
 }

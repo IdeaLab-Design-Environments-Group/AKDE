@@ -6,6 +6,7 @@
 
 ### Changes — 2026-05-21
 
+- **Cricut SVG export added (§6.1).** An **Export** button (header) opens a modal with three previews — **cut**, **score**, and **both** overlaid (same origin) — and one action, **Export as SVG**, which downloads a `.zip` containing two registered files in one folder: `akde-kirigami-cut.svg` (outline + major/minor cuts) and `akde-kirigami-score.svg` (valley creases **+ each polygon's two slant side edges**). Files are mm-sized so they import at real size; cut = black, score = blue. New: `kirigami/model/svg-export.ts`, `kirigami/model/zip.ts` (dependency-free ZIP), `kirigami/view/export-modal.ts`.
 - **Valid κ range clarified (§2.6.3).** Any finite κ = H/R > 0 is geometrically valid, including κ > 1 (ψ > 45°): a taller apex lengthens the slant edge `s = √(R²+H²)` (always > H, so the apex is always reachable) and narrows the faces (η → 0). No upper H bound except the degenerate κ → ∞ limit; C1–C6 verified passing up to κ = 50.
 - **Corrected degenerate-apex limit.** The §2.6.3 warning said `η → π`; the real tall-pyramid degenerate limit is **`η → 0`** (sliver faces as κ → ∞).
 - **C5 trip point corrected (§10).** C5 (`w ≤ L`) first fails near κ ≈ 1.45 (N=3) to ≈1.75 (N=12), not the κ ≈ 1.3 stated earlier — κ = 1 is just ψ = 45°, not a fold-overlap boundary.
@@ -389,18 +390,21 @@ derived from the trapezoid geometry (the end leg spans the molecule width \(w\) 
 kirigami/
   model/
     types.ts           # KirigamiInputs, derived state, constraint DTOs, formatters
-    geometry.ts        # R, s, ψ, κ, η, θ, w, γ, r_apex formulas
+    geometry.ts        # R, s, ψ, κ, η, θ, w, γ, r_apex, D, minor cut formulas
     constraints.ts     # C1–C6 → boolean + residual
     validation.ts      # H > 0, T > 0 input validation (not checklist)
     pattern.ts         # SVG path geometry: polygons, molecules, cuts, folds
+    svg-export.ts      # Cricut export: cut/score split, previews, zip payload (§6.1)
+    zip.ts             # dependency-free ZIP (STORE) writer
   view/
-    inputs-panel.ts    # N, K_tot=H, L, T; derived scalars read-only
+    inputs-panel.ts    # N, L, L_o, K_tot=H, T; derived scalars read-only
     checklist-view.ts  # constraint rows + auto-check icons
     pattern-canvas.ts  # SVG: line styles §6
+    export-modal.ts    # Export button + modal (cut/score/both previews) (§6.1)
   controller/
-    kirigami-controller.ts  # wire input events → recompute → views
+    kirigami-controller.ts  # wire input events → recompute → views; getExportPayload()
 app/
-  main.ts              # bootstrap DOM, mount MVC
+  main.ts              # bootstrap DOM, mount MVC + export modal
   index.html
   styles.css           # minimal layout; B&W friendly
 ```
@@ -512,6 +516,24 @@ flowchart LR
 
 **Not in v1:** mountain vs valley color split (optional hatching later).
 
+### 6.1 Export (Cricut SVG)
+
+An **Export** button in the header opens a modal (`kirigami/view/export-modal.ts`) with three previews and one action.
+
+**Operation mapping** (`kirigami/model/svg-export.ts`):
+
+| Layer | Colour | Pattern roles |
+|-------|--------|---------------|
+| **cut** | black `#000000` | `boundary` (outer outline) + `cut` (major + minor cuts) |
+| **score** | blue `#0000ff` | `fold` (valley creases) + each polygon's two **slant side edges** (the tip→outer sides; the outer base stays a cut via `boundary`) |
+
+Face fills (`polygon` interiors, `molecule`, `molecule-fill`) are visual only and excluded.
+
+**Files & format:**
+- `buildCricutSvgFiles(net)` → two standalone SVGs (`…-cut.svg`, `…-score.svg`), each sized in **mm** with the **same `viewBox`** so they import registered (aligned) in Cricut Design Space at real size. Set the blue layer's operation to *Score*, the black to *Cut*.
+- `buildCricutZip(net)` packs both under one folder (`<baseName>/…`) in a `.zip` via a dependency-free STORE-method writer (`kirigami/model/zip.ts`) — a browser download can't create a folder directly.
+- `buildCricutPreviews(net)` → three inline thumbnails (`cut`, `score`, `both` overlaid) using `vector-effect="non-scaling-stroke"` so lines stay visible small; `buildExportPayload(net)` bundles previews + archive. Controller exposes `getExportPayload()`.
+
 ---
 
 ## 7. Implementation phases (14 steps)
@@ -554,11 +576,17 @@ AKDE/
     │   ├── types.ts
     │   ├── geometry.ts
     │   ├── constraints.ts
-    │   └── pattern.ts
+    │   ├── validation.ts
+    │   ├── pattern.ts
+    │   ├── svg-export.ts     # Cricut export (§6.1)
+    │   ├── zip.ts            # ZIP writer
+    │   └── index.ts          # model barrel
     ├── view/
     │   ├── inputs-panel.ts
     │   ├── checklist-view.ts
-    │   └── pattern-canvas.ts
+    │   ├── pattern-canvas.ts
+    │   ├── export-modal.ts   # Export button + modal (§6.1)
+    │   └── index.ts          # view barrel
     └── controller/
         └── kirigami-controller.ts
 ```
