@@ -51,6 +51,12 @@ export interface FoldNet {
   edges: FoldNetEdge[];
   /** Outer base-ring vertex indices (the pyramid base perimeter) — anchor candidates. */
   base: number[];
+  /**
+   * Base-corner pairs that **merge** into one cone base vertex when folded — each molecule's two
+   * outer corners (polyOuterR[k], polyOuterL[k+1]). Drives the forward fold to the goal mesh:
+   * the pair collapses together (radius R) so the molecule between them tucks (DETC §3).
+   */
+  basePairs: [number, number][];
   /** Polygon apex-tip vertex indices (one per wedge; they converge but never weld). */
   tips: number[];
   meta: {
@@ -132,6 +138,7 @@ export function buildFoldNet(state: KirigamiState): FoldNet {
   const valleyKeys = new Set<string>();
   const mountainKeys = new Set<string>();
   const cutKeys = new Set<string>(); // molecule dart-mouth (minor cut) — free, no bar
+  const basePairs: [number, number][] = []; // outer corners that merge into a cone base vertex
   const ekey = (a: number, b: number): string => (a < b ? `${a}_${b}` : `${b}_${a}`);
   const addTri = (a: P2, b: P2, c: P2): void => {
     faces.push([vid(a), vid(b), vid(c)]);
@@ -153,6 +160,9 @@ export function buildFoldNet(state: KirigamiState): FoldNet {
     const outerL2 = polyOuterL[kp]; // shared corner with polygon k+1
     const innerMid = mid(innerL, innerR);
     const outerMid = mid(outerR1, outerL2);
+
+    // These two outer corners merge into one cone base vertex when folded (the molecule tucks).
+    basePairs.push([vid(outerR1), vid(outerL2)]);
 
     // Minor cut (DETC §3.1 / computeMinorCutLength): two slits run from the outer corners and
     // converge on the valley centreline at `foldPt`, removing the outer wedge so the molecule can
@@ -264,6 +274,7 @@ export function buildFoldNet(state: KirigamiState): FoldNet {
     faces,
     edges,
     base,
+    basePairs,
     tips,
     meta: {
       N,
@@ -323,6 +334,7 @@ export function foldNetFromMesh(
     faces,
     edges,
     base: [],
+    basePairs: [],
     tips: [],
     meta: {
       N: meta.N ?? 0,

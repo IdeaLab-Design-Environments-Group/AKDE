@@ -15,7 +15,9 @@
 const COMMON = /* glsl */ `
   #define MAXDEG 64
 
-  uniform sampler2D uMass;       // x=mass, y=fixed
+  uniform sampler2D uMass;       // x=mass, y=fixed, z=driven
+  uniform sampler2D uRest;       // flat rest position (static) — for driven boundary nodes
+  uniform sampler2D uGoal;       // folded goal position (static) — for driven boundary nodes
   uniform sampler2D uNodeMeta;   // beamStart, numBeams, creaseStart, numCreases
   uniform sampler2D uNodeMeta2;  // faceStart, numFaces
   uniform sampler2D uBeamMeta;   uniform vec2 uBeamDim;        // k, other, l0, c(damp)
@@ -153,6 +155,12 @@ export const POSITION_SHADER = /* glsl */ `
     float self = selfIndex();
     vec4 m = fetch(uMass, self, resolution);
     vec3 p = texture2D(texturePosition, uv).xyz;
+    if (m.z > 0.5) { // driven boundary node — kinematically moved rest→goal by foldPercent
+      vec3 rest = texture2D(uRest, uv).xyz;
+      vec3 goal = texture2D(uGoal, uv).xyz;
+      gl_FragColor = vec4(mix(rest, goal, uFoldPercent), 0.0);
+      return;
+    }
     if (m.y > 0.5) { gl_FragColor = vec4(p, 0.0); return; } // fixed
     vec3 v = texture2D(textureVelocity, uv).xyz;
     vec3 f = computeForce(self);

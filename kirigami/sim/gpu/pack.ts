@@ -18,7 +18,8 @@ export interface PackedModel {
 
   position: Float32Array; // W*H*4 — xyz = flat-net position, w = 0 (strain out)
   velocity: Float32Array; // W*H*4 — 0
-  mass: Float32Array; // W*H*4 — x = mass, y = fixed(0/1)
+  mass: Float32Array; // W*H*4 — x = mass, y = fixed(0/1), z = driven(0/1)
+  goal: Float32Array; // W*H*4 — xyz = folded goal position for driven boundary nodes
   nodeMeta: Float32Array; // W*H*4 — beamStart, numBeams, creaseStart, numCreases
   nodeMeta2: Float32Array; // W*H*4 — faceStart, numFaces, 0, 0
 
@@ -54,15 +55,20 @@ export function packModel(m: BarHingeModel, zeta: number): PackedModel {
   const [W, H] = texDim(N);
   const node4 = () => new Float32Array(W * H * 4);
 
-  const position = node4();
+  const position = node4(); // also serves as the static "rest" (flat) texture for driven nodes
   const velocity = node4();
   const mass = node4();
+  const goal = node4();
   for (let i = 0; i < N; i++) {
     position[4 * i] = m.position[3 * i];
     position[4 * i + 1] = m.position[3 * i + 1];
     position[4 * i + 2] = m.position[3 * i + 2];
     mass[4 * i] = m.mass[i];
     mass[4 * i + 1] = m.fixed[i];
+    mass[4 * i + 2] = m.driven[i];
+    goal[4 * i] = m.goal[3 * i];
+    goal[4 * i + 1] = m.goal[3 * i + 1];
+    goal[4 * i + 2] = m.goal[3 * i + 2];
   }
 
   // --- per-node incidence lists --------------------------------------------------------
@@ -172,6 +178,7 @@ export function packModel(m: BarHingeModel, zeta: number): PackedModel {
     position,
     velocity,
     mass,
+    goal,
     nodeMeta,
     nodeMeta2,
     beamDim,

@@ -1,6 +1,6 @@
 import type { KirigamiState } from "../model/types.js";
 import { buildFoldNet, foldNetFromMesh, type FoldNet } from "./foldnet.js";
-import { buildModel, setFixed, DEFAULT_PARAMS, type BarHingeModel, type SolverParams } from "./model.js";
+import { buildModel, DEFAULT_PARAMS, type BarHingeModel, type SolverParams } from "./model.js";
 import { FoldSolver } from "./solver.js";
 import { vec3 } from "./vec3.js";
 
@@ -13,15 +13,44 @@ export interface FoldScene {
 
 /**
  * Build the full forward-folding simulation from a computed kirigami state:
- * FoldNet (topology) → bar-and-hinge SoA model → Gershenfeld solver. One apex-tip node is
- * pinned to remove rigid-body translation; everything else folds freely as `foldPercent` ramps.
+ * FoldNet (topology) → bar-and-hinge SoA model → Gershenfeld solver, set up for the **DETC
+ * forward process**: the boundary is driven to the goal mesh M0 (apex tips → apex height H,
+ * each molecule's outer-corner pair → the merged base-ring vertex at radius R) as `foldPercent`
+ * ramps 0→1, while the bar-and-hinge interior (molecules) tucks via its creases and cuts. This
+ * folds to the *designed* shape rather than an arbitrary amount, so the cone lands crisply.
  */
 export function buildFoldScene(state: KirigamiState, params: SolverParams = DEFAULT_PARAMS): FoldScene {
   const net = buildFoldNet(state);
   const model = buildModel(net, params);
-  if (net.tips.length > 0) setFixed(model, [net.tips[0]]); // anchor to kill translational drift
+  setupGuidedFold(model, net);
   const solver = new FoldSolver(model);
   return { net, model, solver };
+}
+
+/**
+ * Mark the boundary nodes as kinematically driven and store their goal (folded) positions.
+ * Coordinates are in the net's normalized units (`meta.scale`), matching `model.position`.
+ */
+export function setupGuidedFold(model: BarHingeModel, net: FoldNet): void {
+  const drive = (i: number, gx: number, gy: number, gz: number): void => {
+    model.driven[i] = 1;
+    model.fixed[i] = 1; // forces never move a driven node; its position is set kinematically
+    model.goal[3 * i] = gx;
+    model.goal[3 * i + 1] = gy;
+    model.goal[3 * i + 2] = gz;
+  };
+  // apex tips converge to the apex point (0, 0, H)
+  for (const t of net.tips) drive(t, 0, 0, net.meta.H);
+  // each molecule's outer-corner pair merges into one cone base vertex at radius R
+  for (const [a, b] of net.basePairs) {
+    const angA = Math.atan2(net.vertices[a].y, net.vertices[a].x);
+    const angB = Math.atan2(net.vertices[b].y, net.vertices[b].x);
+    const mid = angA + 0.5 * (((angB - angA) + 2 * Math.PI) % (2 * Math.PI));
+    const gx = net.meta.R * Math.cos(mid);
+    const gy = net.meta.R * Math.sin(mid);
+    drive(a, gx, gy, 0);
+    drive(b, gx, gy, 0);
+  }
 }
 
 /**

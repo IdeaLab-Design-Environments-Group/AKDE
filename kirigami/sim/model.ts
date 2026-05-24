@@ -64,6 +64,10 @@ export interface BarHingeModel {
   force: Float32Array; // 3N (scratch)
   mass: Float32Array; // N
   fixed: Uint8Array; // N (1 = pinned)
+  /** 3N — goal (folded) position for driven boundary nodes (the DETC goal mesh M0). */
+  goal: Float32Array;
+  /** N — 1 = boundary node kinematically driven rest→goal by foldPercent (forward process). */
+  driven: Uint8Array;
 
   beams: {
     count: number;
@@ -153,6 +157,8 @@ export function buildModel(
   }
   const mass = new Float32Array(numNodes).fill(1); // paper assumes unit mass
   const fixed = new Uint8Array(numNodes);
+  const goal = rest.slice(); // default goal = rest (overwritten for driven boundary nodes)
+  const driven = new Uint8Array(numNodes);
 
   // --- Beams: one per edge. Cut ("C") edges are kirigami separations (apex-hole rim + molecule
   // dart mouths): they carry a face-boundary bar like any free edge, but couple no crease across
@@ -240,6 +246,8 @@ export function buildModel(
     force: new Float32Array(3 * numNodes),
     mass,
     fixed,
+    goal,
+    driven,
     beams,
     creases,
     faces,

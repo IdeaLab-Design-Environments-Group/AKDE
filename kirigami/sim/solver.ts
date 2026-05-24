@@ -29,10 +29,27 @@ export class FoldSolver {
 
   /** Advance one explicit step at the current `foldPercent`. */
   step(): void {
+    this.driveBoundary();
     computeFaceNormals(this.model);
     computeThetas(this.model, this.theta);
     accumulateForces(this.model, this.theta, this.foldPercent);
     integrate(this.model, this.dt);
+  }
+
+  /**
+   * Forward process (DETC §3.2): move each driven boundary node along rest→goal by foldPercent,
+   * so the structure is guided to the designed goal mesh M0 while the interior relaxes. Driven
+   * nodes are also `fixed`, so the force passes leave them where this puts them.
+   */
+  private driveBoundary(): void {
+    const m = this.model;
+    const fp = this.foldPercent;
+    for (let i = 0; i < m.numNodes; i++) {
+      if (!m.driven[i]) continue;
+      for (let d = 0; d < 3; d++) {
+        m.position[3 * i + d] = m.rest[3 * i + d] + (m.goal[3 * i + d] - m.rest[3 * i + d]) * fp;
+      }
+    }
   }
 
   /**

@@ -71,15 +71,26 @@ makes them floppy and *worse*), but couple no crease across them. They render as
 2. **Overdamping** (`ζ = 1.0`). The flat→cone fold is a buckling problem; ζ≈1 reliably damps the
    chaotic buckle (ζ past ~1.5 hits explicit-damping instability).
 
-## Fold targets (v1, approximate)
+## Folding: DETC forward process (guided to the goal mesh)
 
-Mountain slants `θ_target = −foldMountain` (≈1.2), valley centrelines `θ_target = +foldValley`
-(≈2.9, near-full tuck — collapses the flat perimeter radius `s` to base radius `R`), facets 0.
-`foldPercent` (0→1) is eased **quasi-statically** so the structure stays near equilibrium. Result:
-a **stable cone**, apex closed, height within ~20% of `H`, mean bar strain ~0.3 (path-sensitive
-bar compliance). Crisp low-strain folding (screenshot-2 quality) needs **guided targets** — either
-the DETC closure angles (Eqs 1–2) or kinematic base-ring/apex anchors driven to the cone — which
-the diagnostics confirmed reach the apex cleanly. That is the main open refinement.
+The fold follows DETC §3.2 / Figure 6–7: drive the structure to the **goal mesh M0** while the
+bar-and-hinge interior relaxes. Concretely (`setupGuidedFold` in `build.ts`), the **boundary** is
+kinematically driven rest→goal by `foldPercent`:
+
+- apex tips → the apex point `(0, 0, H)` (the major-cut hole closes), and
+- each molecule's outer-corner **merge pair** (`net.basePairs`) → its single cone base vertex at
+  radius `R` (the molecule between them tucks).
+
+The interior molecules tuck through their **valley creases and minor cuts** (no guessed crease
+angles). Because the goal is isometric to the faces and the cuts absorb the excess, the fold lands
+**crisply on the designed cone**: apex closed, height exactly `H`, base radius `R`, and **mean bar
+strain ≈ 0.02 (≈100% of bars under 10%)** across N=4…8 — a clean fold, not the earlier ~0.3 buckle.
+`foldPercent` is still eased quasi-statically and exposed to the view's scrubber. The dihedral
+relationship (fold angle = π − γ, DETC Eq 5 = `computeDihedralGamma`) is the measured quantity; the
+goal positions come straight from the geometry formulas (`R`, `H`).
+
+Crease targets (`foldMountain`/`foldValley`) remain as a fallback for **un-guided** free folding
+(e.g. exploring without a goal shape); guided mode overrides them via the driven boundary.
 
 ## Validation (tests/sim.test.ts)
 
@@ -98,7 +109,7 @@ the diagnostics confirmed reach the apex cleanly. That is the main open refineme
 | S3 | Gershenfeld force math + CPU solver (tested) | ✅ |
 | S4 | GPU solver via GPUComputationRenderer (packing tested) | ✅ |
 | S5 | Three.js view (lit faces + creases) + app wiring | ✅ |
-| S6 | Exact per-crease targets from DETC closure (lower strain) | ⏳ next |
+| S6 | DETC forward process: guided fold to goal mesh (crisp, ~2% strain) | ✅ |
 | S7 | Strain colormap (paper §3.1) + fold-% scrubber UI | ⏳ |
 | S8 | Cross-check folded apex defect / closure vs C1/C2 | ⏳ |
 

@@ -57,6 +57,8 @@ export class GpuFoldSolver {
     const v2 = (d: [number, number]) => new THREE.Vector2(d[0], d[1]);
     const shared = {
       uMass: { value: tex(packed.mass, W, H) },
+      uRest: { value: tex(packed.position.slice(), W, H) }, // static flat positions (driven nodes)
+      uGoal: { value: tex(packed.goal, W, H) },
       uNodeMeta: { value: tex(packed.nodeMeta, W, H) },
       uNodeMeta2: { value: tex(packed.nodeMeta2, W, H) },
       uBeamMeta: { value: tex(packed.beamMeta, packed.beamDim[0], packed.beamDim[1]) },

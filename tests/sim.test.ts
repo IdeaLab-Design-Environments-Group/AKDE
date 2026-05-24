@@ -46,27 +46,23 @@ describe("FoldNet topology", () => {
     }
   });
 
-  it("minor cuts let the molecule tuck: thicker material (bigger cuts) folds flatter", () => {
-    // The minor-cut length grows with material thickness T; bigger cuts remove more of the
-    // outer wedge, so the molecule tucks with less residual bar strain (the kirigami premise).
-    const meanStrain = (T: number): number => {
-      const state = computeState({ edgeCount: 6, edgeLength: 100, totalCurvature: 100, materialThickness: T });
-      const { model, solver } = buildFoldScene(state);
-      solver.solve(16000, 1);
-      let s = 0;
-      for (let i = 0; i < model.beams.count; i++) {
-        const a = model.beams.n0[i];
-        const b = model.beams.n1[i];
-        const l = Math.hypot(
-          model.position[3 * a] - model.position[3 * b],
-          model.position[3 * a + 1] - model.position[3 * b + 1],
-          model.position[3 * a + 2] - model.position[3 * b + 2],
-        );
-        s += Math.abs(l / model.beams.rest[i] - 1);
-      }
-      return s / model.beams.count;
-    };
-    expect(meanStrain(5)).toBeLessThan(meanStrain(1));
+  it("the molecule tucks via its minor cuts — guided fold stays near-isometric", () => {
+    // With the minor cuts opening the molecule dart, the guided fold to the goal mesh tucks the
+    // excess material instead of stretching it: mean bar strain stays small (the kirigami premise).
+    const { model, solver } = buildFoldScene(STATE);
+    solver.solve(16000, 1);
+    let s = 0;
+    for (let i = 0; i < model.beams.count; i++) {
+      const a = model.beams.n0[i];
+      const b = model.beams.n1[i];
+      const l = Math.hypot(
+        model.position[3 * a] - model.position[3 * b],
+        model.position[3 * a + 1] - model.position[3 * b + 1],
+        model.position[3 * a + 2] - model.position[3 * b + 2],
+      );
+      s += Math.abs(l / model.beams.rest[i] - 1);
+    }
+    expect(s / model.beams.count).toBeLessThan(0.1);
   });
 });
 
@@ -136,8 +132,8 @@ describe("crease force (Gershenfeld §2.3–2.6) — single hinge", () => {
   });
 });
 
-describe("full-net forward fold", () => {
-  it("folds the flat net into a pyramid: apex closes, height tracks H, bounded strain", () => {
+describe("full-net forward fold (DETC forward process → goal mesh)", () => {
+  it("folds the flat net crisply into the designed pyramid: apex closes, height = H, low strain", () => {
     const { net, model, solver } = buildFoldScene(STATE);
     solver.solve(16000, 1);
 
@@ -150,19 +146,15 @@ describe("full-net forward fold", () => {
     const meanR = (ids: number[]) =>
       ids.reduce((a, i) => a + Math.hypot(model.position[3 * i], model.position[3 * i + 1]), 0) / ids.length;
 
-    // apex tips converge toward the axis (major cut closes — kirigami apex), base stays spread
-    const tipR = meanR(net.tips);
-    const baseR = meanR(net.base);
-    expect(tipR).toBeLessThan(baseR * 0.6);
+    // apex tips driven to the axis (major cut closes — kirigami apex), base spread to radius R
+    expect(meanR(net.tips)).toBeLessThan(0.05 * net.meta.R);
+    expect(meanR(net.base)).toBeCloseTo(net.meta.R, 1);
 
-    // cone height tracks the design apex altitude H. Positions are normalized (Gershenfeld unit
-    // scale), so compare against the scaled target net.meta.H (= STATE.H · scale). v1 targets are
-    // approximate ⇒ loose band.
+    // cone height = the designed apex altitude H (normalized as net.meta.H = STATE.H · scale)
     const height = Math.abs(meanZ(net.base) - meanZ(net.tips));
-    expect(height).toBeGreaterThan(0.5 * net.meta.H);
-    expect(height).toBeLessThan(1.5 * net.meta.H);
+    expect(height).toBeCloseTo(net.meta.H, 1);
 
-    // bar compliance: mean axial strain stays bounded (Gershenfeld faces deform somewhat)
+    // near-isometric: the molecules tuck via their cuts, so mean bar strain is small
     let strain = 0;
     for (let i = 0; i < model.beams.count; i++) {
       const a = model.beams.n0[i];
@@ -175,8 +167,6 @@ describe("full-net forward fold", () => {
       strain += Math.abs(l / model.beams.rest[i] - 1);
     }
     strain /= model.beams.count;
-    // Bounded (the crumple is gone) — a stable cone, not a chaotic buckle. The fold is
-    // path-sensitive bar-and-hinge compliance; crisp low-strain folding needs guided targets.
-    expect(strain).toBeLessThan(0.45);
+    expect(strain).toBeLessThan(0.1);
   });
 });
