@@ -390,3 +390,147 @@ body {
 .export-svg-btn:hover {
   background: #1858c2;
 }
+
+.export-svg-btn--secondary {
+  background: #fff;
+  color: #1741c4;
+}
+
+.export-svg-btn--secondary:hover {
+  background: #eef2ff;
+}
+
+/* Header action buttons (3D Sim + Export) */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* 3D simulation button + modal */
+.sim-trigger {
+  font: inherit;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #1741c4;
+  background: #fff;
+  color: #1741c4;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sim-trigger:hover {
+  background: #eef2ff;
+}
+
+.sim-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.sim-overlay[hidden] {
+  display: none;
+}
+
+.sim-modal {
+  width: min(880px, 94vw);
+  background: #fff;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.sim-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid #e2e2e2;
+}
+
+.sim-modal-title {
+  font-weight: 600;
+}
+
+.sim-modal-close {
+  font: inherit;
+  font-size: 1.2rem;
+  line-height: 1;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #555;
+}
+
+.sim-modal-body {
+  padding: 0;
+  background: #f4f6fb;
+}
+
+.sim-canvas-mount {
+  width: 100%;
+  height: min(62vh, 560px);
+  display: block;
+}
+
+.sim-canvas-mount canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sim-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-top: 1px solid #e2e2e2;
+}
+
+.sim-status {
+  font-size: 0.8rem;
+  color: #555;
+}
+
+.sim-reset-btn {
+  font: inherit;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #1741c4;
+  background: #1f6feb;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.sim-reset-btn:hover {
+  background: #1858c2;
+}
+
+.sim-fold-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #333;
+  white-space: nowrap;
+}
+
+.sim-fold-value {
+  display: inline-block;
+  min-width: 2.8em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #1741c4;
+}
+
+.sim-fold-slider {
+  width: clamp(120px, 22vw, 240px);
+  cursor: pointer;
+  accent-color: #1f6feb;
+}

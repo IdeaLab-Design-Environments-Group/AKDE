@@ -1,0 +1,351 @@
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage[colorlinks=true,linkcolor=blue,urlcolor=blue]{hyperref}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\title{AKDE Current Math Formulas}
+\author{}
+\date{Generated from the active TypeScript implementation}
+
+\newcommand{\formularefs}[1]{%
+\par\smallskip
+\noindent\footnotesize\textit{References: }#1
+\par\smallskip\normalsize
+}
+
+\begin{document}
+\maketitle
+
+\section{Scope}
+
+This document lists the formulas currently used by the AKDE implementation under
+\texttt{kirigami/model/}. It reflects the active code paths, including clamps,
+validation gates, and the currently selected minor-cut formula.
+
+\section{Inputs and Symbols}
+
+\begin{align*}
+N &:= \text{edge count}, \qquad N \ge 3, \\
+L &:= \text{base edge length (mm)}, \\
+L_o &:= \text{outer polygon-face edge length on the perimeter (mm)}, \\
+H &:= K_{\mathrm{tot}} = \text{vertical apex height (mm)}, \\
+T &:= \text{material thickness (mm)}.
+\end{align*}
+
+The implementation validates
+\[
+H > 0,
+\qquad
+T > 0.
+\]
+
+\formularefs{Implementation authority: \texttt{kirigami/model/validation.ts}.}
+
+\section{Derived Pyramid Geometry}
+
+\subsection{Primary lengths and angles}
+
+\begin{align}
+R &= \frac{L}{2\sin\!\left(\frac{\pi}{N}\right)}, \\
+s &= \sqrt{R^2 + H^2}, \\
+\psi &= \operatorname{atan2}(H,R), \\
+\kappa &= \frac{H}{R}.
+\end{align}
+
+\formularefs{For the regular-\(N\)-gon circumradius relation and non-right-triangle trigonometry, see OpenStax, ``\href{https://openstax.org/books/algebra-and-trigonometry-2e/pages/10-1-non-right-triangles-law-of-sines}{10.1 Non-right Triangles: Law of Sines}'' and ``\href{https://openstax.org/books/algebra-and-trigonometry-2e/pages/7-2-right-triangle-trigonometry}{7.2 Right Triangle Trigonometry}.''}
+
+The apex face angle is
+\begin{equation}
+\eta =
+\begin{cases}
+2\arcsin\!\left(\min\!\left(1,\dfrac{R\sin(\pi/N)}{s}\right)\right), & s>0 \text{ and } R>0,\\[6pt]
+0, & \text{otherwise.}
+\end{cases}
+\end{equation}
+
+\formularefs{The \(\eta\) expression is the law-of-sines reduction for the lateral face isosceles triangle; see OpenStax, ``\href{https://openstax.org/books/algebra-and-trigonometry-2e/pages/10-1-non-right-triangles-law-of-sines}{10.1 Non-right Triangles: Law of Sines}.'' AKDE-specific specialization: \texttt{kirigami/model/geometry.ts}.}
+
+The discrete angle defect and uniform molecule angle are
+\begin{align}
+\delta_{\mathrm{apex}} &= 2\pi - N\eta, \\
+\theta &= \frac{\delta_{\mathrm{apex}}}{N}, \\
+\tau &= \frac{2\pi}{N}.
+\end{align}
+
+\formularefs{For angle defect as \(2\pi\) minus the sum of incident angles, see Keenan Crane, \emph{Discrete Differential Geometry: An Applied Introduction}, §5.5--5.6, especially the angle-defect definition and discrete Gauss--Bonnet discussion: \href{https://www.cs.cmu.edu/~kmcrane/Projects/DDG/paper.pdf}{CMU notes PDF}. For the kirigami reduction \(\theta=\delta_{\mathrm{apex}}/N\) and closure step \(\tau=2\pi/N\), see Liu et al., ``\href{https://static1.squarespace.com/static/5783b6f903596e5098f3fce8/t/5dd2e95aee053940522eab1a/1574103423054/DETC2019-97557.pdf}{Programmable Kirigami},'' Eq.~(1) and Figure~2.}
+
+The molecule width is
+\begin{equation}
+w = 2s\sin\!\left(\frac{\theta}{2}\right).
+\end{equation}
+
+\formularefs{The paper defines \(W(i,j)\) as the edge-molecule width and Figure~2 gives the symmetric trapezoid geometry; the chord specialization used here is an AKDE uniform-fan derivation built on Liu et al., ``\href{https://static1.squarespace.com/static/5783b6f903596e5098f3fce8/t/5dd2e95aee053940522eab1a/1574103423054/DETC2019-97557.pdf}{Programmable Kirigami},'' Figure~2 and Eq.~(2). Implementation authority: \texttt{kirigami/model/geometry.ts}.}
+
+\subsection{Major cut and molecule measures}
+
+The physical major-cut radius is
+\[
+r_{\mathrm{phys}} = \frac{T}{\sin(\theta/2)}.
+\]
+
+The implementation applies a visualization clamp:
+\begin{equation}
+r_{\mathrm{apex}} =
+\begin{cases}
+\min\!\left(\dfrac{T}{\sin(\theta/2)},\,0.4\,s\right), & T>0 \text{ and } \theta>0,\\[8pt]
+0, & \text{otherwise.}
+\end{cases}
+\end{equation}
+
+The molecule end-leg length is
+\begin{equation}
+D = 2s\tan\!\left(\frac{\theta}{2}\right)
+= \frac{w}{\cos(\theta/2)},
+\qquad
+0 < \theta < \pi.
+\end{equation}
+
+\formularefs{Major/minor cuts and molecule geometry are introduced in Liu et al., ``\href{https://static1.squarespace.com/static/5783b6f903596e5098f3fce8/t/5dd2e95aee053940522eab1a/1574103423054/DETC2019-97557.pdf}{Programmable Kirigami},'' Figure~2 and the paragraph introducing major and minor cuts. The explicit formulas for \(r_{\mathrm{apex}}\), the \(0.4s\) clamp, and \(D\) are AKDE implementation formulas in \texttt{kirigami/model/geometry.ts}.}
+
+\subsection{Dihedral angle}
+
+Let
+\[
+\phi = -\frac{\pi}{2},
+\qquad
+\Delta = \frac{2\pi}{N},
+\qquad
+\mathbf{a} = (0,0,H),
+\]
+and define base vertices
+\[
+\mathbf{b}(\alpha) = \bigl(R\cos\alpha,\; R\sin\alpha,\; 0\bigr).
+\]
+
+Then
+\begin{align*}
+\mathbf{b}_i &= \mathbf{b}(\phi), \\
+\mathbf{b}_{\mathrm{prev}} &= \mathbf{b}(\phi-\Delta), \\
+\mathbf{b}_{\mathrm{next}} &= \mathbf{b}(\phi+\Delta).
+\end{align*}
+
+The adjacent face normals used by the code are
+\begin{align}
+\mathbf{n}_1 &= (\mathbf{b}_{\mathrm{prev}}-\mathbf{b}_i) \times (\mathbf{a}-\mathbf{b}_i), \\
+\mathbf{n}_2 &= (\mathbf{a}-\mathbf{b}_i) \times (\mathbf{b}_{\mathrm{next}}-\mathbf{b}_i).
+\end{align}
+
+If either normal has near-zero length, the implementation returns $\gamma=\pi$.
+Otherwise,
+\begin{align}
+\alpha_{\mathrm{norm}} &=
+\arccos\!\left(
+\operatorname{clamp}_{[-1,1]}
+\frac{\mathbf{n}_1\cdot\mathbf{n}_2}{\lVert \mathbf{n}_1\rVert \lVert \mathbf{n}_2\rVert}
+\right), \\
+\gamma &= \pi - \alpha_{\mathrm{norm}}.
+\end{align}
+
+\formularefs{For cross products and normals to the plane spanned by two vectors, see OpenStax, ``\href{https://openstax.org/books/calculus-volume-3/pages/2-4-the-cross-product}{2.4 The Cross Product}.'' The specific adjacent-face construction and \(\gamma=\pi-\alpha_{\mathrm{norm}}\) convention are AKDE implementation choices in \texttt{kirigami/model/geometry.ts}.}
+
+\section{Minor-Cut Formulas Currently Active}
+
+The active implementation selects \texttt{MINOR\_CUT\_FORMULA = "fold-reach"}.
+
+First, the fold-clearance depth used by constraint $C6$ is
+\begin{equation}
+d_{\mathrm{clear}} =
+\begin{cases}
+T\tan(\gamma/2), & T>0,\; 0<\gamma/2<\pi/2,\\[4pt]
+0, & \text{otherwise.}
+\end{cases}
+\end{equation}
+
+The active minor-cut length is
+\begin{equation}
+\ell = \sqrt{\left(\frac{w}{2}\right)^2 + r_{\mathrm{apex}}^2}.
+\end{equation}
+
+This is the same as
+\[
+\ell = \operatorname{hypot}\!\left(\frac{w}{2},\,r_{\mathrm{apex}}\right).
+\]
+
+\formularefs{Liu et al. state that the minor cut depends on ``the angle between adjacent mesh faces and the width of the hinge'' and refer to Figure~2, but they do not give a closed-form equation; see ``\href{https://static1.squarespace.com/static/5783b6f903596e5098f3fce8/t/5dd2e95aee053940522eab1a/1574103423054/DETC2019-97557.pdf}{Programmable Kirigami},'' the paragraph immediately before Figure~2. The formulas \(d_{\mathrm{clear}}=T\tan(\gamma/2)\) and \(\ell=\sqrt{(w/2)^2+r_{\mathrm{apex}}^2}\) are AKDE-specific constructions in \texttt{kirigami/model/geometry.ts}; the current branch is \texttt{MINOR\_CUT\_FORMULA = "fold-reach"}.}
+
+\section{Constraint Equations}
+
+The code uses a tolerance
+\[
+\varepsilon = 10^{-10}.
+\]
+
+\subsection{$C1$: angle closure}
+
+\begin{align}
+\rho_{C1} &= \left|N\theta + N\eta - 2\pi\right|, \\
+C1 &\text{ is satisfied iff } \rho_{C1} < \varepsilon.
+\end{align}
+
+\formularefs{Directly from Liu et al., Eq.~(1): ``\href{https://static1.squarespace.com/static/5783b6f903596e5098f3fce8/t/5dd2e95aee053940522eab1a/1574103423054/DETC2019-97557.pdf}{Programmable Kirigami}.''}
+
+\subsection{$C2$: vector closure}
+
+The phase sequence is
+\[
+\Phi_n = n\tau,
+\qquad n=0,1,\dots,N-1.
+\]
+
+The closure sum is
+\begin{align}
+S_x &= \sum_{n=0}^{N-1} w\cos(\Phi_n), \\
+S_y &= \sum_{n=0}^{N-1} w\sin(\Phi_n),
+\end{align}
+with residual
+\begin{align}
+\rho_{C2} &= \sqrt{S_x^2 + S_y^2}, \\
+C2 &\text{ is satisfied iff } \rho_{C2} < \varepsilon.
+\end{align}
+
+\formularefs{Directly from Liu et al., Eq.~(2) and the closed-polygon condition explained immediately below it in ``\href{https://static1.squarespace.com/static/5783b6f903596e5098f3fce8/t/5dd2e95aee053940522eab1a/1574103423054/DETC2019-97557.pdf}{Programmable Kirigami}.''}
+
+\subsection{$C3$: molecule angle range}
+
+\begin{align}
+\rho_{C3} &= \max\!\left(0,\; |\theta| - (\pi-\varepsilon)\right), \\
+C3 &\text{ is satisfied iff } |\theta| < \pi-\varepsilon.
+\end{align}
+
+\formularefs{Directly from Liu et al., inequality~(3) in ``\href{https://static1.squarespace.com/static/5783b6f903596e5098f3fce8/t/5dd2e95aee053940522eab1a/1574103423054/DETC2019-97557.pdf}{Programmable Kirigami}.''}
+
+\subsection{$C4$: non-negative width}
+
+\begin{align}
+\rho_{C4} &=
+\begin{cases}
+-w, & w<0,\\
+0, & w\ge 0,
+\end{cases} \\
+C4 &\text{ is satisfied iff } w \ge -\varepsilon.
+\end{align}
+
+\formularefs{Directly from Liu et al., inequality~(4) in ``\href{https://static1.squarespace.com/static/5783b6f903596e5098f3fce8/t/5dd2e95aee053940522eab1a/1574103423054/DETC2019-97557.pdf}{Programmable Kirigami}.''}
+
+\subsection{$C5$: fold overlap}
+
+\begin{align}
+\rho_{C5} &= \max(0,\,w-L), \\
+C5 &\text{ is satisfied iff } \rho_{C5} \le \varepsilon,
+\end{align}
+equivalently
+\[
+w \le L.
+\]
+
+\formularefs{This is an AKDE validity proxy, not a closed-form condition from the paper. The paper states that the molecule must be valid without overlapping; AKDE instantiates that idea as \(w \le L\). Implementation authority: \texttt{kirigami/model/constraints.ts}; conceptual context from Liu et al., the text introducing inequalities~(3)--(4).}
+
+\subsection{$C6$: cut vs.\ dihedral}
+
+The code computes
+\begin{align}
+d_{\mathrm{relief}} &=
+\begin{cases}
+T\tan(\gamma/2), & 0<\gamma/2<\pi/2-10^{-12},\\[4pt]
+\infty, & \text{otherwise,}
+\end{cases} \\
+d_{\mathrm{avail}} &= s-r_{\mathrm{apex}}, \\
+\rho_{C6} &= \max(0,\,d_{\mathrm{relief}} - d_{\mathrm{avail}}).
+\end{align}
+
+Constraint $C6$ is satisfied iff
+\[
+\rho_{C6} \le \varepsilon,
+\]
+which corresponds to the intended inequality
+\[
+T\tan(\gamma/2) \le s-r_{\mathrm{apex}}.
+\]
+
+\formularefs{This is an AKDE validity proxy derived from the minor-cut clearance concept, not a closed-form inequality from Liu et al. Conceptual source: Liu et al., major/minor-cut discussion around Figure~2. Implementation authority: \texttt{kirigami/model/constraints.ts}.}
+
+\section{Rendered Net Geometry}
+
+The exported SVG pattern uses the same derived geometry plus the optional perimeter
+input $L_o$.
+
+\subsection{Outer polygon span}
+
+The implementation first chooses
+\[
+L_o^\ast =
+\begin{cases}
+L_o, & L_o>0,\\
+L, & \text{otherwise.}
+\end{cases}
+\]
+
+Then it computes
+\begin{align}
+\alpha_{\max} &= \frac{\tau}{2} - 10^{-3}, \\
+\alpha_o &= \min\!\left(
+\max\!\left(
+\arcsin\!\left(\min\!\left(1,\frac{L_o^\ast}{2s}\right)\right),
+10^{-4}
+\right),
+\alpha_{\max}
+\right).
+\end{align}
+
+\formularefs{This is an AKDE rendering construction for the outer perimeter chord span. The triangle relation behind \(\arcsin(L_o^\ast/(2s))\) comes from the same law-of-sines / chord geometry used above; see OpenStax, ``\href{https://openstax.org/books/algebra-and-trigonometry-2e/pages/10-1-non-right-triangles-law-of-sines}{10.1 Non-right Triangles: Law of Sines}.'' Implementation authority: \texttt{kirigami/model/pattern.ts}.}
+
+Here $\alpha_o$ is the half-span of each polygon outer base on the radius-$s$ circle.
+
+\subsection{Rendered molecule outer chord}
+
+Because the perimeter alternates polygon and molecule spans, the rendered molecule
+chord becomes
+\begin{equation}
+w_{\mathrm{rendered}} = 2s\sin\!\left(\max\!\left(0,\frac{\tau}{2}-\alpha_o\right)\right).
+\end{equation}
+
+\formularefs{AKDE rendering-specific chord formula from \texttt{kirigami/model/pattern.ts}; it follows from circle-chord geometry after allocating perimeter span \(\alpha_o\) to the polygon outer base.}
+
+\subsection{Minor cut passed to rendering}
+
+The renderer uses
+\begin{equation}
+\ell_{\mathrm{render}} =
+\operatorname{computeMinorCutLength}\!\left(\gamma,\,w_{\mathrm{rendered}},\,T,\,\theta,\,r_{\mathrm{apex}}\right).
+\end{equation}
+
+With the active \texttt{fold-reach} branch, this reduces to
+\[
+\ell_{\mathrm{render}} =
+\sqrt{\left(\frac{w_{\mathrm{rendered}}}{2}\right)^2 + r_{\mathrm{apex}}^2}.
+\]
+
+\formularefs{AKDE rendering specialization of the active \texttt{fold-reach} branch from \texttt{kirigami/model/geometry.ts} and \texttt{kirigami/model/pattern.ts}.}
+
+\section{Default Input Case}
+
+The default state is
+\[
+N=6,
+\qquad
+L=100~\mathrm{mm},
+\qquad
+L_o=100~\mathrm{mm},
+\qquad
+T=1~\mathrm{mm},
+\]
+with
+\[
+R = \frac{L}{2\sin(\pi/N)},
+\qquad
+H = R.
+\]
+
+\end{document}

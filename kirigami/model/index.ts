@@ -55,11 +55,13 @@ export type {
 
 export {
   buildCricutSvgFiles,
+  buildCombinedCricutSvg,
   buildCricutZip,
   buildCricutPreviews,
   buildExportPayload,
   CUT_COLOR,
   SCORE_COLOR,
+  LINE_STROKE_WIDTH,
 } from "./svg-export.js";
 export type {
   CricutSvgFile,

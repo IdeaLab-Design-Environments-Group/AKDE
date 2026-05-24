@@ -1,4 +1,8 @@
-import type { ExportArchive, ExportPayload } from "../model/svg-export.js";
+import type {
+  CricutSvgFile,
+  ExportArchive,
+  ExportPayload,
+} from "../model/svg-export.js";
 
 /** Returns the current export payload (previews + archive) when the modal opens. */
 export type ExportProvider = () => ExportPayload | null;
@@ -6,14 +10,16 @@ export type ExportProvider = () => ExportPayload | null;
 /**
  * Export submenu: an "Export" trigger button plus a modal overlay (header / body / footer)
  * styled after the app's dialogs. The body shows three previews — cut, score, and both
- * overlaid — and the single action "Export as SVG" downloads a zip containing the separate
- * cut and score SVGs in one folder.
+ * overlaid — and offers two downloads: "Cut + score (zip)" packs the separate cut and
+ * score SVGs in one folder, while "Single SVG" downloads one colour-coded file (black =
+ * cut, blue = score) for slicebug / single-import Cricut workflows.
  */
 export class ExportModal {
   private readonly overlay: HTMLElement;
   private readonly trigger: HTMLButtonElement;
   private provider: ExportProvider | null = null;
   private archive: ExportArchive | null = null;
+  private combined: CricutSvgFile | null = null;
 
   constructor() {
     this.trigger = document.createElement("button");
@@ -48,7 +54,8 @@ export class ExportModal {
           </div>
         </div>
         <footer class="export-modal-footer">
-          <button type="button" class="export-svg-btn">Export as SVG</button>
+          <button type="button" class="export-svg-btn export-svg-btn--secondary export-single-btn">Single SVG</button>
+          <button type="button" class="export-svg-btn">Cut + score (zip)</button>
         </footer>
       </div>
     `;
@@ -58,8 +65,11 @@ export class ExportModal {
       .querySelector(".export-modal-close")!
       .addEventListener("click", () => this.close());
     this.overlay
-      .querySelector(".export-svg-btn")!
+      .querySelector(".export-svg-btn:not(.export-single-btn)")!
       .addEventListener("click", () => this.exportSvg());
+    this.overlay
+      .querySelector(".export-single-btn")!
+      .addEventListener("click", () => this.exportCombined());
     this.overlay.addEventListener("click", (e) => {
       if (e.target === this.overlay) this.close();
     });
@@ -96,16 +106,28 @@ export class ExportModal {
     set("score", payload?.previews.score ?? "");
     set("both", payload?.previews.both ?? "");
     this.archive = payload?.archive ?? null;
+    this.combined = payload?.combined ?? null;
 
-    const btn = this.overlay.querySelector(
-      ".export-svg-btn",
+    const zipBtn = this.overlay.querySelector(
+      ".export-svg-btn:not(.export-single-btn)",
     ) as HTMLButtonElement | null;
-    if (btn) btn.disabled = this.archive === null;
+    if (zipBtn) zipBtn.disabled = this.archive === null;
+
+    const singleBtn = this.overlay.querySelector(
+      ".export-single-btn",
+    ) as HTMLButtonElement | null;
+    if (singleBtn) singleBtn.disabled = this.combined === null;
   }
 
   private exportSvg(): void {
     if (!this.archive) return;
     downloadBlob(this.archive.filename, this.archive.bytes, "application/zip");
+    this.close();
+  }
+
+  private exportCombined(): void {
+    if (!this.combined) return;
+    downloadBlob(this.combined.filename, this.combined.svg, "image/svg+xml");
     this.close();
   }
 }

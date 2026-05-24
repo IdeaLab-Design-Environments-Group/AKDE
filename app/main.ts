@@ -4,6 +4,7 @@ import {
   ExportModal,
   InputsPanel,
   PatternCanvas,
+  SimModal,
 } from "@kirigami/view/index.js";
 
 const app = document.getElementById("app");
@@ -29,6 +30,14 @@ const controller = createController({
 });
 
 const exportModal = new ExportModal();
+const simModal = new SimModal();
 const header = document.querySelector(".app-header");
-if (header) exportModal.mountTrigger(header as HTMLElement);
+if (header) {
+  const actions = document.createElement("div");
+  actions.className = "header-actions";
+  simModal.mountTrigger(actions);
+  exportModal.mountTrigger(actions);
+  header.appendChild(actions);
+}
 exportModal.setProvider(() => controller.getExportPayload());
+simModal.setProvider(() => controller.getState());

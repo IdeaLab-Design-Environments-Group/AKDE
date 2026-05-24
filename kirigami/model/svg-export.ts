@@ -14,6 +14,12 @@ import { createZip } from "./zip.js";
  * loaded into Cricut Design Space — import the cut file as a Cut layer and the score file as
  * a Score layer at the same position. Coords are mm, so they import at real size.
  *
+ * **Each cut/score is its own line path.** Every segment is emitted as a separate stroked
+ * `<path>` (fill `none`) — the outer boundary, the major cut, each minor slit, each crease — so
+ * Cricut imports them as distinct, individually selectable cut/score lines rather than one
+ * welded compound shape. Attributes are set per-path (not only on the group) so the strokes
+ * survive import even if the group wrapper is flattened.
+ *
  * Face fills (`polygon` interiors, `molecule`, `molecule-fill`) are visual only and excluded;
  * the polygon outer base edges stay on the cut layer via the `boundary` outline.
  */
@@ -25,6 +31,8 @@ const SCORE_ROLES: readonly PatternStrokeRole[] = ["fold"];
 export const CUT_COLOR = "#000000";
 /** Score layer colour — assign "Score" in Cricut Design Space. */
 export const SCORE_COLOR = "#0000ff";
+/** Stroke width (mm) for the exported cut/score lines. */
+export const LINE_STROKE_WIDTH = 0.25;
 
 export interface CricutSvgFile {
   filename: string;
@@ -47,10 +55,13 @@ export interface CricutPreviews {
   both: string;
 }
 
-/** Everything the export modal needs: thumbnails to show and the archive to download. */
+/** Everything the export modal needs: thumbnails to show and the downloads to offer. */
 export interface ExportPayload {
   previews: CricutPreviews;
+  /** Two separate SVGs (cut, score) packed in one zip folder. */
   archive: ExportArchive;
+  /** One combined SVG where stroke colour denotes the operation, or null when empty. */
+  combined: CricutSvgFile | null;
 }
 
 /** One file per operation (cut, score). Layers with no paths are omitted. */
@@ -65,16 +76,46 @@ export function buildCricutSvgFiles(
   if (cuts.length > 0) {
     files.push({
       filename: `${baseName}-cut.svg`,
-      svg: layerSvg(net, cuts, "cut", CUT_COLOR),
+      svg: svgWrap(net, linesMarkup(cuts, "cut", CUT_COLOR, "  ")),
     });
   }
   if (scores.length > 0) {
     files.push({
       filename: `${baseName}-score.svg`,
-      svg: layerSvg(net, scores, "score", SCORE_COLOR),
+      svg: svgWrap(net, linesMarkup(scores, "score", SCORE_COLOR, "  ")),
     });
   }
   return files;
+}
+
+/**
+ * Single-file export: one SVG containing **both** operations, where the stroke colour
+ * denotes the operation — cut paths in {@link CUT_COLOR} (black), score paths in
+ * {@link SCORE_COLOR} (blue). This is the slicebug `plan` / Cricut "one import,
+ * colour-coded layers" flow: feed this one file to slicebug with
+ * `--map 000000:fine_point_blade --map 0000ff:scoring_stylus`, or import it into Design
+ * Space and assign Cut to the black layer and Score to the blue layer.
+ *
+ * Same `viewBox` and mm size as the two-file export, so it imports at real size and the
+ * two operations stay registered. Returns null when there is nothing to export.
+ */
+export function buildCombinedCricutSvg(
+  net: PatternNet,
+  baseName = "akde-kirigami",
+): CricutSvgFile | null {
+  const cuts = net.segments.filter((s) => CUT_ROLES.includes(s.role));
+  const scores = scoreSegments(net);
+  if (cuts.length === 0 && scores.length === 0) return null;
+  const body = [
+    cuts.length > 0 ? linesMarkup(cuts, "cut", CUT_COLOR, "  ") : "",
+    scores.length > 0 ? linesMarkup(scores, "score", SCORE_COLOR, "  ") : "",
+  ]
+    .filter((m) => m.length > 0)
+    .join("\n");
+  return {
+    filename: `${baseName}-combined.svg`,
+    svg: svgWrap(net, body),
+  };
 }
 
 /**
@@ -120,7 +161,11 @@ export function buildExportPayload(
 ): ExportPayload | null {
   const archive = buildCricutZip(net, baseName);
   if (!archive) return null;
-  return { previews: buildCricutPreviews(net), archive };
+  return {
+    previews: buildCricutPreviews(net),
+    archive,
+    combined: buildCombinedCricutSvg(net, baseName),
+  };
 }
 
 function previewSvg(
@@ -149,22 +194,42 @@ function previewSvg(
   );
 }
 
-function layerSvg(
-  net: PatternNet,
-  segs: PatternSegment[],
-  id: string,
-  color: string,
-): string {
+/** Wrap inner markup in an mm-sized SVG sharing the net's viewBox (so layers stay registered). */
+function svgWrap(net: PatternNet, body: string): string {
   const [x, y, w, h] = net.viewBox;
-  const paths = segs.map((s) => `    <path d="${s.d}" />`).join("\n");
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" ` +
     `width="${fmt(w)}mm" height="${fmt(h)}mm" ` +
     `viewBox="${fmt(x)} ${fmt(y)} ${fmt(w)} ${fmt(h)}">\n` +
-    `  <g id="${id}" fill="none" stroke="${color}" stroke-width="0.1">\n` +
-    `${paths}\n` +
-    `  </g>\n` +
+    `${body}\n` +
     `</svg>\n`
+  );
+}
+
+/**
+ * Emit each segment as its own stroked line `<path>` (fill `none`) inside an identified group.
+ * Per-path `fill`/`stroke`/`stroke-width` are set explicitly (not only on the group) so each cut
+ * or score line imports into Cricut as a distinct, individually selectable line — never welded
+ * into one compound shape, and robust to the group wrapper being flattened.
+ */
+function linesMarkup(
+  segs: PatternSegment[],
+  id: string,
+  color: string,
+  indent = "",
+): string {
+  const paths = segs
+    .map(
+      (s) =>
+        `${indent}  <path d="${s.d}" fill="none" stroke="${color}" ` +
+        `stroke-width="${LINE_STROKE_WIDTH}" />`,
+    )
+    .join("\n");
+  return (
+    `${indent}<g id="${id}" fill="none" stroke="${color}" ` +
+    `stroke-width="${LINE_STROKE_WIDTH}">\n` +
+    `${paths}\n` +
+    `${indent}</g>`
   );
 }
 

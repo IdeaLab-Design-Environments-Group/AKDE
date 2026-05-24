@@ -1,7 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx vitest *)"
+      "Bash(npx vitest *)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"=== TSC EXIT $? ===\")",
+      "Bash(python3 - \"Example-File-03.gh\")",
+      "Bash(python3 -)",
+      "Read(//Users/emredayangac/Desktop/**)",
+      "Bash(pdfinfo ~/Desktop/DETC2019-97557.pdf)",
+      "Bash(npm install *)",
+      "Bash(echo \"=== EXIT $? ===\")",
+      "Bash(echo \"exit was: $?\")",
+      "Bash(echo \"TSC real exit: $?\")",
+      "Bash(echo \"tsc exit: $?\")",
+      "Bash(npx vite-node *)",
+      "Bash(npx tsx *)",
+      "Bash(echo \"tsc: $?\")",
+      "Bash(npm run *)"
     ]
   }
 }

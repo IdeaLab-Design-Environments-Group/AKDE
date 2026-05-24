@@ -3,11 +3,13 @@ import {
   computeState,
   buildPatternNet,
   buildCricutSvgFiles,
+  buildCombinedCricutSvg,
   buildCricutZip,
   buildCricutPreviews,
   buildExportPayload,
   CUT_COLOR,
   SCORE_COLOR,
+  LINE_STROKE_WIDTH,
 } from "@kirigami/model/index.js";
 
 describe("buildCricutSvgFiles", () => {
@@ -31,7 +33,7 @@ describe("buildCricutSvgFiles", () => {
     }
   });
 
-  it("cut file = boundary + cut (black); score file = folds + polygon side edges (blue)", () => {
+  it("cut file = one stroked line <path> per cut segment (boundary + interior cuts), black", () => {
     const [cut, score] = buildCricutSvgFiles(net);
     const cutCount = net.segments.filter(
       (s) => s.role === "boundary" || s.role === "cut",
@@ -41,10 +43,18 @@ describe("buildCricutSvgFiles", () => {
     const scoreCount =
       net.segments.filter((s) => s.role === "fold").length + 2 * polygonCount;
 
+    // each cut is its own line path — NOT one welded compound path
     expect((cut.svg.match(/<path /g) ?? []).length).toBe(cutCount);
     expect(cut.svg).toContain('id="cut"');
-    expect(cut.svg).toContain('stroke="#000000"');
+    expect(cut.svg).toContain(`stroke="${CUT_COLOR}"`);
+    expect(cut.svg).not.toContain("fill-rule"); // not a filled compound shape
+    // every cut path is explicitly fill:none stroked (survives Cricut group flattening)
+    for (const p of cut.svg.match(/<path [^>]*\/>/g) ?? []) {
+      expect(p).toContain('fill="none"');
+      expect(p).toContain(`stroke="${CUT_COLOR}"`);
+    }
 
+    // score stays stroked lines, blue
     expect((score.svg.match(/<path /g) ?? []).length).toBe(scoreCount);
     expect(score.svg).toContain('id="score"');
     expect(score.svg).toContain('stroke="#0000ff"');
@@ -59,6 +69,68 @@ describe("buildCricutSvgFiles", () => {
     const [cut, score] = buildCricutSvgFiles(net);
     const vb = (svg: string) => svg.match(/viewBox="([^"]+)"/)?.[1];
     expect(vb(cut.svg)).toBe(vb(score.svg));
+  });
+});
+
+describe("buildCombinedCricutSvg", () => {
+  const net = buildPatternNet(
+    computeState({ edgeCount: 6, edgeLength: 100, totalCurvature: 100, materialThickness: 1 }),
+  );
+
+  it("emits one mm-sized SVG with stroked cut and score line layers", () => {
+    const file = buildCombinedCricutSvg(net);
+    expect(file).not.toBeNull();
+    expect(file!.filename).toBe("akde-kirigami-combined.svg");
+    expect(file!.svg).toContain('xmlns="http://www.w3.org/2000/svg"');
+    expect(file!.svg).toMatch(/width="[\d.]+mm" height="[\d.]+mm"/);
+
+    // both layers are stroked lines, colour-coded by operation
+    expect(file!.svg).toContain('id="cut"');
+    expect(file!.svg).toContain('id="score"');
+    expect(file!.svg).toContain(`stroke="${CUT_COLOR}"`);
+    expect(file!.svg).toContain(`stroke="${SCORE_COLOR}"`);
+  });
+
+  it("holds the same paths as the two separate files combined", () => {
+    const [cut, score] = buildCricutSvgFiles(net);
+    const combined = buildCombinedCricutSvg(net)!;
+    const count = (svg: string) => (svg.match(/<path /g) ?? []).length;
+    expect(count(combined.svg)).toBe(count(cut.svg) + count(score.svg));
+  });
+
+  it("shares the viewBox of the two-file export so it registers and sizes the same", () => {
+    const [cut] = buildCricutSvgFiles(net);
+    const combined = buildCombinedCricutSvg(net)!;
+    const vb = (svg: string) => svg.match(/viewBox="([^"]+)"/)?.[1];
+    expect(vb(combined.svg)).toBe(vb(cut.svg));
+  });
+});
+
+describe("cuts export as separate line paths (not one compound path)", () => {
+  it("each cut segment is its own <path> with its exact geometry preserved", () => {
+    // boundary + major cut + two minor slits → four distinct line paths
+    const fakeNet = {
+      viewBox: [0, 0, 20, 20] as [number, number, number, number],
+      segments: [
+        { role: "boundary" as const, d: "M 0 0 L 20 0 L 20 20 L 0 20 Z" },
+        { role: "cut" as const, d: "M 5 5 L 15 5 L 15 15 L 5 15 Z" }, // major cut
+        { role: "cut" as const, d: "M 6 10 L 9 10" }, // minor slit
+        { role: "cut" as const, d: "M 11 10 L 14 10" }, // minor slit
+      ],
+    };
+    const [cut] = buildCricutSvgFiles(fakeNet);
+
+    // one <path> element per cut segment — not merged
+    const paths = cut.svg.match(/<path [^>]*\/>/g) ?? [];
+    expect(paths.length).toBe(4);
+
+    // each segment's exact `d` survives verbatim as its own path (open slits stay open lines)
+    for (const seg of fakeNet.segments) {
+      expect(cut.svg).toContain(`d="${seg.d}"`);
+    }
+    // and they are stroked lines, not a filled compound shape
+    expect(cut.svg).not.toContain("fill-rule");
+    expect(cut.svg).toContain(`stroke-width="${LINE_STROKE_WIDTH}"`);
   });
 });
 
@@ -107,10 +179,12 @@ describe("buildCricutPreviews", () => {
     expect(p.both).toContain("non-scaling-stroke");
   });
 
-  it("buildExportPayload bundles previews and the zip archive", () => {
+  it("buildExportPayload bundles previews, the zip archive, and the combined SVG", () => {
     const payload = buildExportPayload(net);
     expect(payload).not.toBeNull();
     expect(payload!.archive.filename).toBe("akde-kirigami.zip");
+    expect(payload!.combined?.filename).toBe("akde-kirigami-combined.svg");
+    expect(payload!.combined?.svg).toContain("<svg");
     expect(payload!.previews.cut).toContain("<svg");
     expect(payload!.previews.both).toContain("<svg");
   });

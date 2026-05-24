@@ -96,10 +96,17 @@ Invalid inputs short-circuit the pipeline: derived output and pattern output are
 
 - [README.md](/Users/emredayangac/Documents/AKDE/README.md)
   - Short project entry point.
-  - Explains how to run the app and points to the plan.
+  - Explains how to run the app and points to the plan and formula sheet.
 
 - [CONTRIBUTING.md](/Users/emredayangac/Documents/AKDE/CONTRIBUTING.md)
   - This document.
+
+- [current-formulas.tex](/Users/emredayangac/Documents/AKDE/current-formulas.tex)
+  - Implementation-synchronized formula reference in LaTeX.
+  - Links each formula block to its paper, textbook, or code authority.
+
+- [current-formulas.pdf](/Users/emredayangac/Documents/AKDE/current-formulas.pdf)
+  - Compiled formula handout for quick review outside the source tree.
 
 - [package.json](/Users/emredayangac/Documents/AKDE/package.json)
   - Defines the dev workflow:

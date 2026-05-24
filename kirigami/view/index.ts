@@ -7,3 +7,4 @@ export {
   type PatternStrokeRole,
 } from "./pattern-canvas.js";
 export { ExportModal, type ExportProvider } from "./export-modal.js";
+export { SimModal, type SimStateProvider } from "./sim-modal.js";

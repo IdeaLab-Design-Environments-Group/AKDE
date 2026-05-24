@@ -3,6 +3,7 @@
 Uniform edge-molecule kirigami patterns from **edge count** \(N\), **edge length** \(L\) (mm), **outer edge length** \(L_o\) (mm), **vertical apex altitude** \(K_{\mathrm{tot}} = H\) (mm), and **material thickness** \(T\) (mm). The default template is a hexagonal pyramid (N = 6). See [plan/plan.md](plan/plan.md) for theory and architecture.
 
 For project structure, design patterns, reproducibility rules, and onboarding, see [CONTRIBUTING.md](CONTRIBUTING.md).
+For an implementation-focused formula sheet, see [current-formulas.tex](current-formulas.tex) and the compiled [current-formulas.pdf](current-formulas.pdf).
 
 ## Quick start
 
@@ -24,6 +25,14 @@ Open the URL Vite prints (default `http://localhost:5173`). Edit **N**, **L**, *
 | `npm run test` | Vitest (geometry, constraints, validation, pattern structure) |
 | `npm run preview` | Preview production build |
 
+## Documentation
+
+- [plan/plan.md](plan/plan.md): project theory, geometry contract, and architecture
+- [plan/references.md](plan/references.md): bibliography and source papers
+- [current-formulas.tex](current-formulas.tex): implementation-synchronized LaTeX formula reference
+- [current-formulas.pdf](current-formulas.pdf): compiled formula sheet with per-formula references
+- [CONTRIBUTING.md](CONTRIBUTING.md): repo structure, workflow, and onboarding notes
+
 ## Layout (MVC, no `src/`)
 
 ```
@@ -34,4 +43,4 @@ app/                  — HTML, CSS, bootstrap
 tests/                — vitest coverage for model and pattern behavior
 ```
 
-**Plan:** [plan/plan.md](plan/plan.md) · **References:** [plan/references.md](plan/references.md)
+**Plan:** [plan/plan.md](plan/plan.md) · **References:** [plan/references.md](plan/references.md) · **Formula sheet:** [current-formulas.pdf](current-formulas.pdf)
