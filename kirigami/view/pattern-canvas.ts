@@ -25,7 +25,8 @@ export class PatternCanvas {
         <span class="legend-item legend-molecule">—— molecules</span>
         <span class="legend-item legend-boundary">—— outline</span>
         <span class="legend-item legend-fold">- - - fold</span>
-        <span class="legend-item legend-cut">---- cut</span>
+        <span class="legend-item legend-cut">---- major cut</span>
+        <span class="legend-item legend-minor-cut">---- minor cut</span>
       </p>
     `;
     this.svgEl = this.root.querySelector("svg")!;

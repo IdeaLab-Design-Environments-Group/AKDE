@@ -5,7 +5,13 @@ Uniform edge-molecule kirigami patterns from **edge count** \(N\), **edge length
 For project structure, design patterns, reproducibility rules, and onboarding, see [CONTRIBUTING.md](CONTRIBUTING.md).
 For an implementation-focused formula sheet, see [current-formulas.tex](current-formulas.tex) and the compiled [current-formulas.pdf](current-formulas.pdf).
 
-## Quick start
+## Live site
+
+**▶ https://idealab-design-environments-group.github.io/AKDE/** — no install, runs in the browser.
+
+Every push to `main` rebuilds and publishes via [GitHub Actions](.github/workflows/deploy.yml). **One-time setup:** in the repo's **Settings → Pages → Build and deployment**, set **Source = "GitHub Actions"** (then trigger the workflow by pushing to `main` or running it from the Actions tab).
+
+## Quick start (local dev)
 
 ```bash
 npm install

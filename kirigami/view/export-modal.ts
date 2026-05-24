@@ -12,7 +12,9 @@ export type ExportProvider = () => ExportPayload | null;
  * styled after the app's dialogs. The body shows three previews — cut, score, and both
  * overlaid — and offers two downloads: "Cut + score (zip)" packs the separate cut and
  * score SVGs in one folder, while "Single SVG" downloads one colour-coded file (black =
- * cut, blue = score) for slicebug / single-import Cricut workflows.
+ * cut, blue = score) for slicebug / single-import Cricut workflows. The cut layer holds the
+ * outline, the major cut, and the minor relief slits (the slits sit a small gap from the
+ * outline so they stay separate lines).
  */
 export class ExportModal {
   private readonly overlay: HTMLElement;

@@ -115,13 +115,15 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
     const molecules = net.segments.filter((s) => s.role === "molecule");
     const folds = net.segments.filter((s) => s.role === "fold");
     const cuts = net.segments.filter((s) => s.role === "cut");
+    const minorCuts = net.segments.filter((s) => s.role === "minor-cut");
     const boundaries = net.segments.filter((s) => s.role === "boundary");
     const N = 4;
 
     expect(polygons.length).toBe(N);
     expect(molecules.length).toBe(N);
     expect(folds.length).toBe(N);
-    expect(cuts.length).toBe(1 + 2 * N);
+    expect(cuts.length).toBe(1); // the single major (apex-hole) cut
+    expect(minorCuts.length).toBe(2 * N); // two minor slits per molecule
     expect(boundaries.length).toBe(1);
     expect(net.viewBox[2]).toBeGreaterThan(0);
     expect(net.viewBox[3]).toBeGreaterThan(0);
@@ -254,7 +256,8 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
       expect(net.segments.filter((x) => x.role === "polygon").length).toBe(N);
       expect(net.segments.filter((x) => x.role === "molecule").length).toBe(N);
       expect(net.segments.filter((x) => x.role === "fold").length).toBe(N);
-      expect(net.segments.filter((x) => x.role === "cut").length).toBe(1 + 2 * N);
+      expect(net.segments.filter((x) => x.role === "cut").length).toBe(1);
+      expect(net.segments.filter((x) => x.role === "minor-cut").length).toBe(2 * N);
       expect(net.segments.filter((x) => x.role === "boundary").length).toBe(1);
     }
   });
@@ -284,8 +287,7 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
       const net = buildPatternNet(s);
       const molecules = net.segments.filter((x) => x.role === "molecule");
       const fills = net.segments.filter((x) => x.role === "molecule-fill");
-      const cuts = net.segments.filter((x) => x.role === "cut");
-      const minorCutSegs = cuts.slice(1);
+      const minorCutSegs = net.segments.filter((x) => x.role === "minor-cut");
 
       expect(molecules.length).toBe(N);
       expect(minorCutSegs.length).toBe(2 * N);
@@ -328,14 +330,12 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
   it("two minor cuts per molecule start at p2/p3 and extend inward within the minor-length cap", () => {
     const net = buildPatternNet(state);
     const molecules = net.segments.filter((s) => s.role === "molecule");
-    const cuts = net.segments.filter((s) => s.role === "cut");
     const expectedLen = computeMinorCutLength(state.gamma, state.w, state.inputs.materialThickness, state.theta, state.rApex);
     const N = molecules.length;
 
     expect(expectedLen).toBeGreaterThan(0);
-    expect(cuts.length).toBe(1 + 2 * N);
 
-    const minorCuts = cuts.slice(1);
+    const minorCuts = net.segments.filter((s) => s.role === "minor-cut");
     expect(minorCuts.length).toBe(2 * N);
 
     for (let k = 0; k < N; k++) {
@@ -349,8 +349,10 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
       const cutB = parsePathPoints(minorCuts[2 * k + 1].d);
       const starts = [cutA[0], cutB[0]];
 
-      expect(starts.some((s) => eqPt(s, p2, 1e-6))).toBe(true);
-      expect(starts.some((s) => eqPt(s, p3, 1e-6))).toBe(true);
+      // each minor cut starts a small gap *inside* its perimeter corner (p2/p3) — near the
+      // corner but not on it — so the slit is a separate line from the outer boundary cut.
+      expect(starts.some((s) => !eqPt(s, p2, 1e-6) && dist(s, p2) <= 2.5)).toBe(true);
+      expect(starts.some((s) => !eqPt(s, p3, 1e-6) && dist(s, p3) <= 2.5)).toBe(true);
       expect(starts.every((s) => eqPt(s, topMid, 1e-6))).toBe(false);
 
       for (const cut of [cutA, cutB]) {
@@ -419,7 +421,7 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
       });
       const net = buildPatternNet(s);
       const molecules = net.segments.filter((x) => x.role === "molecule");
-      const minorCutSegs = net.segments.filter((x) => x.role === "cut").slice(1);
+      const minorCutSegs = net.segments.filter((x) => x.role === "minor-cut");
 
       for (let k = 0; k < N; k++) {
         const mol = trapezoidFromPath(parsePathPoints(molecules[k].d));
@@ -545,7 +547,7 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
 
       const net = buildPatternNet(s);
       const molecules = net.segments.filter((x) => x.role === "molecule");
-      const minorCutSegs = net.segments.filter((x) => x.role === "cut").slice(1);
+      const minorCutSegs = net.segments.filter((x) => x.role === "minor-cut");
 
       expect(minorCutSegs.length).toBe(2 * N);
 
@@ -557,8 +559,9 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
         const cutA = parsePathPoints(minorCutSegs[2 * k].d);
         const cutB = parsePathPoints(minorCutSegs[2 * k + 1].d);
         const starts = [cutA[0], cutB[0]];
-        expect(starts.some((st) => eqPt(st, p2, 1e-6))).toBe(true);
-        expect(starts.some((st) => eqPt(st, p3, 1e-6))).toBe(true);
+        // starts sit a small gap inside p2/p3 (separate from the boundary), not exactly on them
+        expect(starts.some((st) => !eqPt(st, p2, 1e-6) && dist(st, p2) <= 2.5)).toBe(true);
+        expect(starts.some((st) => !eqPt(st, p3, 1e-6) && dist(st, p3) <= 2.5)).toBe(true);
 
         for (const cut of [cutA, cutB]) {
           // fold-clearance (active default) is thickness-scaled, so it can be sub-mm
@@ -574,7 +577,9 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
     const roles = net.segments.map((s) => s.role);
     const firstMolecule = roles.indexOf("molecule");
     const lastPolygon = roles.lastIndexOf("polygon");
-    const firstFoldOrCut = roles.findIndex((r) => r === "fold" || r === "cut");
+    const firstFoldOrCut = roles.findIndex(
+      (r) => r === "fold" || r === "cut" || r === "minor-cut",
+    );
     const boundary = roles.indexOf("boundary");
 
     expect(firstMolecule).toBeGreaterThan(lastPolygon);

@@ -12,14 +12,22 @@ import {
   LINE_STROKE_WIDTH,
 } from "@kirigami/model/index.js";
 
+const STATE = computeState({
+  edgeCount: 6,
+  edgeLength: 100,
+  totalCurvature: 100,
+  materialThickness: 1,
+});
+
+function pts(d: string): { x: number; y: number }[] {
+  const nums = d.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/g)?.map(Number) ?? [];
+  const out: { x: number; y: number }[] = [];
+  for (let i = 0; i + 1 < nums.length; i += 2) out.push({ x: nums[i], y: nums[i + 1] });
+  return out;
+}
+
 describe("buildCricutSvgFiles", () => {
-  const state = computeState({
-    edgeCount: 6,
-    edgeLength: 100,
-    totalCurvature: 100,
-    materialThickness: 1,
-  });
-  const net = buildPatternNet(state);
+  const net = buildPatternNet(STATE);
 
   it("emits two separate files: cut and score", () => {
     const files = buildCricutSvgFiles(net);
@@ -33,36 +41,51 @@ describe("buildCricutSvgFiles", () => {
     }
   });
 
-  it("cut file = one stroked line <path> per cut segment (boundary + interior cuts), black", () => {
+  it("cut file = one line <path> per cut segment (boundary + major + minor cuts), all black", () => {
     const [cut, score] = buildCricutSvgFiles(net);
     const cutCount = net.segments.filter(
-      (s) => s.role === "boundary" || s.role === "cut",
+      (s) => s.role === "boundary" || s.role === "cut" || s.role === "minor-cut",
     ).length;
     const polygonCount = net.segments.filter((s) => s.role === "polygon").length;
-    // valley creases + two slant side edges per polygon
     const scoreCount =
       net.segments.filter((s) => s.role === "fold").length + 2 * polygonCount;
 
-    // each cut is its own line path — NOT one welded compound path
+    // all cuts in one layer, each its own line — NOT one welded compound path
     expect((cut.svg.match(/<path /g) ?? []).length).toBe(cutCount);
     expect(cut.svg).toContain('id="cut"');
     expect(cut.svg).toContain(`stroke="${CUT_COLOR}"`);
-    expect(cut.svg).not.toContain("fill-rule"); // not a filled compound shape
-    // every cut path is explicitly fill:none stroked (survives Cricut group flattening)
+    expect(cut.svg).not.toContain("fill-rule");
     for (const p of cut.svg.match(/<path [^>]*\/>/g) ?? []) {
       expect(p).toContain('fill="none"');
       expect(p).toContain(`stroke="${CUT_COLOR}"`);
     }
 
-    // score stays stroked lines, blue
     expect((score.svg.match(/<path /g) ?? []).length).toBe(scoreCount);
     expect(score.svg).toContain('id="score"');
-    expect(score.svg).toContain('stroke="#0000ff"');
+    expect(score.svg).toContain(SCORE_COLOR);
 
-    // neither file mixes the other operation or the visual face geometry
+    // layers don't bleed into each other
     expect(cut.svg).not.toContain("score");
-    expect(score.svg).not.toContain('id="cut"');
     expect(cut.svg).not.toContain("molecule");
+    expect(score.svg).not.toContain('id="cut"');
+  });
+
+  it("minor cuts are SEPARATE lines: no slit endpoint touches the outer boundary", () => {
+    const minorCuts = net.segments.filter((s) => s.role === "minor-cut");
+    const boundary = net.segments.find((s) => s.role === "boundary")!;
+    expect(minorCuts.length).toBeGreaterThan(0);
+    const boundaryPts = pts(boundary.d);
+
+    let minGap = Infinity;
+    for (const mc of minorCuts) {
+      for (const end of pts(mc.d)) {
+        for (const b of boundaryPts) {
+          minGap = Math.min(minGap, Math.hypot(end.x - b.x, end.y - b.y));
+        }
+      }
+    }
+    // every minor-cut endpoint is held clear of every boundary vertex (a real gap, not shared)
+    expect(minGap).toBeGreaterThan(0.5);
   });
 
   it("both files share the same viewBox so they stay registered", () => {
@@ -73,9 +96,7 @@ describe("buildCricutSvgFiles", () => {
 });
 
 describe("buildCombinedCricutSvg", () => {
-  const net = buildPatternNet(
-    computeState({ edgeCount: 6, edgeLength: 100, totalCurvature: 100, materialThickness: 1 }),
-  );
+  const net = buildPatternNet(STATE);
 
   it("emits one mm-sized SVG with stroked cut and score line layers", () => {
     const file = buildCombinedCricutSvg(net);
@@ -83,8 +104,6 @@ describe("buildCombinedCricutSvg", () => {
     expect(file!.filename).toBe("akde-kirigami-combined.svg");
     expect(file!.svg).toContain('xmlns="http://www.w3.org/2000/svg"');
     expect(file!.svg).toMatch(/width="[\d.]+mm" height="[\d.]+mm"/);
-
-    // both layers are stroked lines, colour-coded by operation
     expect(file!.svg).toContain('id="cut"');
     expect(file!.svg).toContain('id="score"');
     expect(file!.svg).toContain(`stroke="${CUT_COLOR}"`);
@@ -98,7 +117,7 @@ describe("buildCombinedCricutSvg", () => {
     expect(count(combined.svg)).toBe(count(cut.svg) + count(score.svg));
   });
 
-  it("shares the viewBox of the two-file export so it registers and sizes the same", () => {
+  it("shares the viewBox of the two-file export", () => {
     const [cut] = buildCricutSvgFiles(net);
     const combined = buildCombinedCricutSvg(net)!;
     const vb = (svg: string) => svg.match(/viewBox="([^"]+)"/)?.[1];
@@ -108,36 +127,29 @@ describe("buildCombinedCricutSvg", () => {
 
 describe("cuts export as separate line paths (not one compound path)", () => {
   it("each cut segment is its own <path> with its exact geometry preserved", () => {
-    // boundary + major cut + two minor slits → four distinct line paths
     const fakeNet = {
       viewBox: [0, 0, 20, 20] as [number, number, number, number],
       segments: [
         { role: "boundary" as const, d: "M 0 0 L 20 0 L 20 20 L 0 20 Z" },
         { role: "cut" as const, d: "M 5 5 L 15 5 L 15 15 L 5 15 Z" }, // major cut
-        { role: "cut" as const, d: "M 6 10 L 9 10" }, // minor slit
-        { role: "cut" as const, d: "M 11 10 L 14 10" }, // minor slit
+        { role: "minor-cut" as const, d: "M 6 10 L 9 10" }, // minor slit
+        { role: "minor-cut" as const, d: "M 11 10 L 14 10" }, // minor slit
       ],
     };
     const [cut] = buildCricutSvgFiles(fakeNet);
 
-    // one <path> element per cut segment — not merged
     const paths = cut.svg.match(/<path [^>]*\/>/g) ?? [];
-    expect(paths.length).toBe(4);
-
-    // each segment's exact `d` survives verbatim as its own path (open slits stay open lines)
+    expect(paths.length).toBe(4); // all four cut lines in one cut layer, each its own path
     for (const seg of fakeNet.segments) {
       expect(cut.svg).toContain(`d="${seg.d}"`);
     }
-    // and they are stroked lines, not a filled compound shape
     expect(cut.svg).not.toContain("fill-rule");
     expect(cut.svg).toContain(`stroke-width="${LINE_STROKE_WIDTH}"`);
   });
 });
 
 describe("buildCricutZip", () => {
-  const net = buildPatternNet(
-    computeState({ edgeCount: 6, edgeLength: 100, totalCurvature: 100, materialThickness: 1 }),
-  );
+  const net = buildPatternNet(STATE);
 
   it("packs both SVGs into one zip under a single folder", () => {
     const archive = buildCricutZip(net);
@@ -145,10 +157,8 @@ describe("buildCricutZip", () => {
     expect(archive!.filename).toBe("akde-kirigami.zip");
 
     const bytes = archive!.bytes;
-    // ZIP local file header signature "PK\x03\x04"
     expect([bytes[0], bytes[1], bytes[2], bytes[3]]).toEqual([0x50, 0x4b, 0x03, 0x04]);
 
-    // STORE (uncompressed) → entry names and SVG text are visible in the bytes
     const text = Buffer.from(bytes).toString("latin1");
     expect(text).toContain("akde-kirigami/akde-kirigami-cut.svg");
     expect(text).toContain("akde-kirigami/akde-kirigami-score.svg");
@@ -158,9 +168,7 @@ describe("buildCricutZip", () => {
 });
 
 describe("buildCricutPreviews", () => {
-  const net = buildPatternNet(
-    computeState({ edgeCount: 6, edgeLength: 100, totalCurvature: 100, materialThickness: 1 }),
-  );
+  const net = buildPatternNet(STATE);
 
   it("cut/score/both previews carry the right colours and share an origin", () => {
     const p = buildCricutPreviews(net);
@@ -171,11 +179,9 @@ describe("buildCricutPreviews", () => {
     expect(p.both).toContain(CUT_COLOR);
     expect(p.both).toContain(SCORE_COLOR);
 
-    // same viewBox ⇒ same origin/scale, so the "both" overlay registers
     const vb = (s: string) => s.match(/viewBox="([^"]+)"/)?.[1];
     expect(vb(p.cut)).toBe(vb(p.both));
     expect(vb(p.score)).toBe(vb(p.both));
-    // strokes stay visible at thumbnail size
     expect(p.both).toContain("non-scaling-stroke");
   });
 

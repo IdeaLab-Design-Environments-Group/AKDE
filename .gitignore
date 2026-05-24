@@ -1,0 +1,9 @@
+# Build output (produced by `npm run build`; CI rebuilds and deploys root ./dist)
+dist/
+
+# Dependencies
+node_modules/
+
+# Logs / OS cruft
+*.log
+.DS_Store

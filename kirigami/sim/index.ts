@@ -23,7 +23,7 @@ export {
 
 export { FoldSolver, measureTheta } from "./solver.js";
 
-export { buildFoldScene, singleHingeModel } from "./build.js";
+export { buildFoldScene, setupGuidedFold, singleHingeModel } from "./build.js";
 export type { FoldScene } from "./build.js";
 
 export * as vec3 from "./vec3.js";

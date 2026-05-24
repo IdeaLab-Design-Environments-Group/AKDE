@@ -3,7 +3,8 @@ import { createZip } from "./zip.js";
 
 /**
  * Cricut-ready SVG export, as **two separate files** packed into one folder:
- * - `…-cut.svg`   — the outer outline plus major/minor cuts (`boundary`, `cut` roles), black
+ * - `…-cut.svg`   — everything to cut, black, in one layer: the outer outline + the major
+ *   (apex-hole) cut + the minor relief slits (`boundary`, `cut`, `minor-cut` roles)
  * - `…-score.svg` — the lines to crease, not cut, blue: the valley creases (`fold` role)
  *   **plus each polygon's two side/slant edges** (the face↔molecule hinges)
  *
@@ -11,20 +12,21 @@ import { createZip } from "./zip.js";
  * (`<baseName>/…`), since a browser download can't create a folder on disk directly.
  *
  * Both files share the same `viewBox` and mm size, so they stay registered (aligned) when
- * loaded into Cricut Design Space — import the cut file as a Cut layer and the score file as
- * a Score layer at the same position. Coords are mm, so they import at real size.
+ * loaded into Cricut Design Space. Coords are mm, so they import at real size.
  *
  * **Each cut/score is its own line path.** Every segment is emitted as a separate stroked
  * `<path>` (fill `none`) — the outer boundary, the major cut, each minor slit, each crease — so
  * Cricut imports them as distinct, individually selectable cut/score lines rather than one
- * welded compound shape. Attributes are set per-path (not only on the group) so the strokes
- * survive import even if the group wrapper is flattened.
+ * welded compound shape. The minor cuts are also held a small gap away from the boundary (see
+ * `MINOR_CUT_GAP` in `pattern.ts`) so they stay separate interior slits rather than joining the
+ * outer cut at a shared vertex.
  *
  * Face fills (`polygon` interiors, `molecule`, `molecule-fill`) are visual only and excluded;
  * the polygon outer base edges stay on the cut layer via the `boundary` outline.
  */
 
-const CUT_ROLES: readonly PatternStrokeRole[] = ["boundary", "cut"];
+/** Everything cut, in one layer: outer outline + major (apex-hole) cut + minor relief slits. */
+const CUT_ROLES: readonly PatternStrokeRole[] = ["boundary", "cut", "minor-cut"];
 const SCORE_ROLES: readonly PatternStrokeRole[] = ["fold"];
 
 /** Cut layer colour — assign "Cut" in Cricut Design Space. */

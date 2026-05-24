@@ -8,6 +8,7 @@ export type PatternStrokeRole =
   | "molecule-fill"
   | "molecule"
   | "cut"
+  | "minor-cut"
   | "fold";
 
 export interface PatternSegment {
@@ -25,6 +26,9 @@ interface Point2 {
   x: number;
   y: number;
 }
+
+/** Gap (mm) left between each minor cut and the outer boundary, so they stay separate lines. */
+const MINOR_CUT_GAP = 2;
 
 /**
  * Figure 2 (DETC) apex-centered fan with major cut at the closure vertex:
@@ -191,14 +195,21 @@ export function buildPatternNet(state: KirigamiState): PatternNet {
       role: "fold",
       d: `M ${valleyFold.start.x} ${valleyFold.start.y} L ${valleyFold.end.x} ${valleyFold.end.y}`,
     });
-    if (minorLen > 0) {
-      for (const minorCut of minorCuts) {
-        if (dist(minorCut.start, minorCut.end) <= 1e-9) {
-          continue;
-        }
+    if (minorLen > 0 && minorCuts.length >= 2) {
+      const [c1, c2] = minorCuts;
+      const len1 = dist(c1.start, c1.end);
+      const len2 = dist(c2.start, c2.end);
+      if (len1 > 1e-9 && len2 > 1e-9) {
+        // Cut the relief wedge as a closed TRIANGLE (a triangular hole that drops out), not two
+        // open slits. Two vertices are the molecule's outer corners pulled a small gap inward
+        // (so the triangle stays separate from the outer boundary cut); the third is the inner
+        // convergence point of the two slits on the valley fold.
+        const A = lerp(c1.start, c1.end, Math.min(MINOR_CUT_GAP, 0.3 * len1) / len1);
+        const B = lerp(c2.start, c2.end, Math.min(MINOR_CUT_GAP, 0.3 * len2) / len2);
+        const C = lerp(c1.end, c2.end, 0.5);
         segments.push({
-          role: "cut",
-          d: `M ${minorCut.start.x} ${minorCut.start.y} L ${minorCut.end.x} ${minorCut.end.y}`,
+          role: "minor-cut",
+          d: closedPolyline([A, B, C]),
         });
       }
     }
