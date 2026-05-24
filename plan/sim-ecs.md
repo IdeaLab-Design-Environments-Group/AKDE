@@ -82,9 +82,13 @@ kinematically driven rest→goal by `foldPercent`:
   radius `R` (the molecule between them tucks).
 
 The interior molecules tuck through their **valley creases and minor cuts** (no guessed crease
-angles). Because the goal is isometric to the faces and the cuts absorb the excess, the fold lands
-**crisply on the designed cone**: apex closed, height exactly `H`, base radius `R`, and **mean bar
-strain ≈ 0.02 (≈100% of bars under 10%)** across N=4…8 — a clean fold, not the earlier ~0.3 buckle.
+angles). **Inside-tuck:** the out-of-plane buckle of a molecule is a symmetric bifurcation (it can
+fold in or out, and sign/force biases were not reliable across N), so each molecule's valley node
+(`net.valleyOuter`, the `foldPt`) is also driven to an **inside goal** (radius ≈ 0.7·R, z ≈ 0.1·H —
+below the cone surface), guaranteeing the molecules tuck *into* the volume rather than protruding
+outward. The apex-region nodes stay free and relax around it. Result: a crisp pyramid with the
+molecules hidden inside, apex closed, height exactly `H`, base radius `R`, mean bar strain ≈ 0.05–0.1
+across N=4…8 — not the earlier outward-buckled flaps.
 `foldPercent` is still eased quasi-statically and exposed to the view's scrubber. The dihedral
 relationship (fold angle = π − γ, DETC Eq 5 = `computeDihedralGamma`) is the measured quantity; the
 goal positions come straight from the geometry formulas (`R`, `H`).

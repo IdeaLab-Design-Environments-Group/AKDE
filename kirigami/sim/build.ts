@@ -51,6 +51,20 @@ export function setupGuidedFold(model: BarHingeModel, net: FoldNet): void {
     drive(a, gx, gy, 0);
     drive(b, gx, gy, 0);
   }
+  // Drive each molecule's valley-convergence node to an INSIDE goal (below the cone surface,
+  // pulled toward the axis) so the molecule tucks into the pyramid volume rather than buckling
+  // outward — the apex-region nodes stay free and relax around it. (DETC: excess is hidden.)
+  const TUCK_RADIUS = 0.7; // fraction of base radius R (inside the surface)
+  const TUCK_HEIGHT = 0.1; // fraction of apex height H (below the local surface ⇒ inside)
+  for (const fp of net.valleyOuter) {
+    const ang = Math.atan2(net.vertices[fp].y, net.vertices[fp].x);
+    drive(
+      fp,
+      net.meta.R * TUCK_RADIUS * Math.cos(ang),
+      net.meta.R * TUCK_RADIUS * Math.sin(ang),
+      net.meta.H * TUCK_HEIGHT,
+    );
+  }
 }
 
 /**

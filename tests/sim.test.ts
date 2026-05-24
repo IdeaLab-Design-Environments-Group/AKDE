@@ -168,5 +168,18 @@ describe("full-net forward fold (DETC forward process → goal mesh)", () => {
     }
     strain /= model.beams.count;
     expect(strain).toBeLessThan(0.1);
+
+    // molecules tuck INSIDE the pyramid (no node protrudes beyond the cone surface z = H(1−r/R))
+    const driven = new Set<number>([
+      ...net.tips,
+      ...net.basePairs.flat(),
+      ...net.valleyOuter,
+    ]);
+    for (let i = 0; i < model.numNodes; i++) {
+      if (driven.has(i)) continue;
+      const r = Math.hypot(model.position[3 * i], model.position[3 * i + 1]);
+      const zSurface = net.meta.H * (1 - Math.min(1, r / net.meta.R));
+      expect(model.position[3 * i + 2]).toBeLessThan(zSurface + 0.05 * net.meta.H);
+    }
   });
 });

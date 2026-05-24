@@ -57,6 +57,12 @@ export interface FoldNet {
    * the pair collapses together (radius R) so the molecule between them tucks (DETC §3).
    */
   basePairs: [number, number][];
+  /**
+   * Molecule valley-convergence node (`foldPt`) indices, one per molecule (aligned with
+   * `basePairs`). These are driven to an *inside* goal in the forward fold so the molecule tucks
+   * into the pyramid volume instead of buckling outward.
+   */
+  valleyOuter: number[];
   /** Polygon apex-tip vertex indices (one per wedge; they converge but never weld). */
   tips: number[];
   meta: {
@@ -139,6 +145,7 @@ export function buildFoldNet(state: KirigamiState): FoldNet {
   const mountainKeys = new Set<string>();
   const cutKeys = new Set<string>(); // molecule dart-mouth (minor cut) — free, no bar
   const basePairs: [number, number][] = []; // outer corners that merge into a cone base vertex
+  const valleyOuter: number[] = []; // foldPt (valley convergence) per molecule
   const ekey = (a: number, b: number): string => (a < b ? `${a}_${b}` : `${b}_${a}`);
   const addTri = (a: P2, b: P2, c: P2): void => {
     faces.push([vid(a), vid(b), vid(c)]);
@@ -183,6 +190,7 @@ export function buildFoldNet(state: KirigamiState): FoldNet {
     );
     const vdir = { x: (innerMid.x - outerMid.x) / valLen, y: (innerMid.y - outerMid.y) / valLen };
     const foldPt: P2 = { x: outerMid.x + vdir.x * depth, y: outerMid.y + vdir.y * depth };
+    valleyOuter.push(vid(foldPt));
 
     // Valley crease: inner-chord mid → minor-cut convergence (shortened by the removed wedge).
     valleyKeys.add(ekey(vid(innerMid), vid(foldPt)));
@@ -275,6 +283,7 @@ export function buildFoldNet(state: KirigamiState): FoldNet {
     edges,
     base,
     basePairs,
+    valleyOuter,
     tips,
     meta: {
       N,
@@ -335,6 +344,7 @@ export function foldNetFromMesh(
     edges,
     base: [],
     basePairs: [],
+    valleyOuter: [],
     tips: [],
     meta: {
       N: meta.N ?? 0,

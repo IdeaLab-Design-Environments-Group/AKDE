@@ -209,9 +209,10 @@ export function buildModel(
     const base = e.assignment === "F" ? params.kFacet : params.kFold;
     creases.k[i] = (1 - c) * base * e.rest; // (1 − cutRatio)·l0·k  (DETC Eq 6 coupling)
 
-    // Design fold angle (signed). Mountain slants fold negative, valleys positive; facets flat.
-    if (e.assignment === "M") creases.targetTheta[i] = -params.foldMountain;
-    else if (e.assignment === "V") creases.targetTheta[i] = +params.foldValley;
+    // Design fold-angle directions (the inside-tuck itself is enforced by driving each molecule's
+    // valley node to an inside goal, see setupGuidedFold; these bias the free apex-region nodes).
+    if (e.assignment === "M") creases.targetTheta[i] = +params.foldMountain;
+    else if (e.assignment === "V") creases.targetTheta[i] = -params.foldValley;
     else creases.targetTheta[i] = 0; // F (facet) — driven flat
   }
 
