@@ -123,7 +123,7 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
     expect(molecules.length).toBe(N);
     expect(folds.length).toBe(N);
     expect(cuts.length).toBe(1); // the single major (apex-hole) cut
-    expect(minorCuts.length).toBe(2 * N); // two minor slits per molecule
+    expect(minorCuts.length).toBe(N); // one triangular minor cut (relief wedge) per molecule
     expect(boundaries.length).toBe(1);
     expect(net.viewBox[2]).toBeGreaterThan(0);
     expect(net.viewBox[3]).toBeGreaterThan(0);
@@ -257,7 +257,7 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
       expect(net.segments.filter((x) => x.role === "molecule").length).toBe(N);
       expect(net.segments.filter((x) => x.role === "fold").length).toBe(N);
       expect(net.segments.filter((x) => x.role === "cut").length).toBe(1);
-      expect(net.segments.filter((x) => x.role === "minor-cut").length).toBe(2 * N);
+      expect(net.segments.filter((x) => x.role === "minor-cut").length).toBe(N);
       expect(net.segments.filter((x) => x.role === "boundary").length).toBe(1);
     }
   });
@@ -290,7 +290,7 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
       const minorCutSegs = net.segments.filter((x) => x.role === "minor-cut");
 
       expect(molecules.length).toBe(N);
-      expect(minorCutSegs.length).toBe(2 * N);
+      expect(minorCutSegs.length).toBe(N); // one triangular minor cut per molecule
 
       for (let k = 0; k < N; k++) {
         const mol = trapezoidFromPath(parsePathPoints(molecules[k].d));
@@ -327,7 +327,7 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
     }
   });
 
-  it("two minor cuts per molecule start at p2/p3 and extend inward within the minor-length cap", () => {
+  it("each molecule's minor cut is a closed relief triangle gapped inside its outer corners", () => {
     const net = buildPatternNet(state);
     const molecules = net.segments.filter((s) => s.role === "molecule");
     const expectedLen = computeMinorCutLength(state.gamma, state.w, state.inputs.materialThickness, state.theta, state.rApex);
@@ -336,36 +336,34 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
     expect(expectedLen).toBeGreaterThan(0);
 
     const minorCuts = net.segments.filter((s) => s.role === "minor-cut");
-    expect(minorCuts.length).toBe(2 * N);
+    expect(minorCuts.length).toBe(N); // one triangular wedge per molecule
 
     for (let k = 0; k < N; k++) {
       const molPts = trapezoidFromPath(parsePathPoints(molecules[k].d));
       const apex = moleculeApex(molPts);
       const { p2, p3 } = moleculeSlantOuterVertices(molPts, apex);
-      const topMid = moleculeTopEdgeMidpoint(molPts, apex);
-      const [innerL, innerR] = moleculeInnerVertices(molPts, apex);
-      const innerMid = lerpPt(innerL, innerR, 0.5);
-      const cutA = parsePathPoints(minorCuts[2 * k].d);
-      const cutB = parsePathPoints(minorCuts[2 * k + 1].d);
-      const starts = [cutA[0], cutB[0]];
 
-      // each minor cut starts a small gap *inside* its perimeter corner (p2/p3) — near the
-      // corner but not on it — so the slit is a separate line from the outer boundary cut.
-      expect(starts.some((s) => !eqPt(s, p2, 1e-6) && dist(s, p2) <= 2.5)).toBe(true);
-      expect(starts.some((s) => !eqPt(s, p3, 1e-6) && dist(s, p3) <= 2.5)).toBe(true);
-      expect(starts.every((s) => eqPt(s, topMid, 1e-6))).toBe(false);
+      const tri = parsePathPoints(minorCuts[k].d);
+      expect(tri.length).toBe(3); // a closed triangle (three vertices)
+      expect(minorCuts[k].d.trimEnd().endsWith("Z")).toBe(true); // closed path
 
-      for (const cut of [cutA, cutB]) {
-        expect(cut.length).toBe(2);
-        const cutLen = dist(cut[0], cut[1]);
-        expect(cutLen).toBeGreaterThan(1);
-        expect(cutLen).toBeLessThanOrEqual(expectedLen + 1e-6);
-        const inward = { x: cut[1].x - cut[0].x, y: cut[1].y - cut[0].y };
-        const toCenter = { x: apex.x - cut[0].x, y: apex.y - cut[0].y };
-        expect(dot(inward, toCenter)).toBeGreaterThan(0);
-        expect(dist(cut[1], apex)).toBeLessThanOrEqual(dist(cut[0], apex) + 1e-6);
-        expect(pointOnSegment(cut[1], molPts[3], molPts[2], 1e-4)).toBe(false);
-      }
+      // two vertices sit a small gap INSIDE the outer corners p2/p3 (near them, not on them),
+      // so the triangle is a separate hole, clear of the outer boundary cut
+      expect(tri.some((v) => !eqPt(v, p2, 1e-6) && dist(v, p2) <= 2.5)).toBe(true);
+      expect(tri.some((v) => !eqPt(v, p3, 1e-6) && dist(v, p3) <= 2.5)).toBe(true);
+      expect(tri.every((v) => !eqPt(v, p2, 1e-6) && !eqPt(v, p3, 1e-6))).toBe(true);
+
+      // a real triangular hole: positive area
+      const area =
+        Math.abs(
+          (tri[1].x - tri[0].x) * (tri[2].y - tri[0].y) -
+            (tri[2].x - tri[0].x) * (tri[1].y - tri[0].y),
+        ) / 2;
+      expect(area).toBeGreaterThan(0.5);
+
+      // the wedge's inner apex points toward the fan centre (closer than the two outer vertices)
+      const byApex = [...tri].sort((a, b) => dist(a, apex) - dist(b, apex));
+      expect(dist(byApex[0], apex)).toBeLessThan(dist(byApex[2], apex));
     }
   });
 
@@ -411,7 +409,7 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
     }
   });
 
-  it("minor cut starts are farther from apex than inner-chord midpoint (N=3,5,6,7)", () => {
+  it("minor-cut triangle sits in the outer molecule region, beyond the inner chord (N=3,5,6,7)", () => {
     for (const N of [3, 5, 6, 7]) {
       const s = computeState({
         edgeCount: N,
@@ -422,6 +420,7 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
       const net = buildPatternNet(s);
       const molecules = net.segments.filter((x) => x.role === "molecule");
       const minorCutSegs = net.segments.filter((x) => x.role === "minor-cut");
+      expect(minorCutSegs.length).toBe(N);
 
       for (let k = 0; k < N; k++) {
         const mol = trapezoidFromPath(parsePathPoints(molecules[k].d));
@@ -430,10 +429,11 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
         const innerMid = lerpPt(innerL, innerR, 0.5);
         const dInner = dist(innerMid, apex);
 
-        const cutA = parsePathPoints(minorCutSegs[2 * k].d);
-        const cutB = parsePathPoints(minorCutSegs[2 * k + 1].d);
-        for (const start of [cutA[0], cutB[0]]) {
-          expect(dist(start, apex)).toBeGreaterThan(dInner + 1e-6);
+        // every vertex of the relief triangle is farther from the fan apex than the inner chord
+        const tri = parsePathPoints(minorCutSegs[k].d);
+        expect(tri.length).toBe(3);
+        for (const v of tri) {
+          expect(dist(v, apex)).toBeGreaterThan(dInner + 1e-6);
         }
 
         const { p2, p3 } = moleculeSlantOuterVertices(mol, apex);
@@ -531,7 +531,7 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
     }
   });
 
-  it("SVG minor cuts have positive length for N=3..8 at L=100, H≈70.7", () => {
+  it("SVG minor-cut triangles have positive area for N=3..8 at L=100, H≈70.7", () => {
     const L = 100;
     const H = L / Math.SQRT2;
 
@@ -549,25 +549,25 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
       const molecules = net.segments.filter((x) => x.role === "molecule");
       const minorCutSegs = net.segments.filter((x) => x.role === "minor-cut");
 
-      expect(minorCutSegs.length).toBe(2 * N);
+      expect(minorCutSegs.length).toBe(N);
 
       for (let k = 0; k < N; k++) {
         const mol = trapezoidFromPath(parsePathPoints(molecules[k].d));
         const apex = moleculeApex(mol);
         const { p2, p3 } = moleculeSlantOuterVertices(mol, apex);
 
-        const cutA = parsePathPoints(minorCutSegs[2 * k].d);
-        const cutB = parsePathPoints(minorCutSegs[2 * k + 1].d);
-        const starts = [cutA[0], cutB[0]];
-        // starts sit a small gap inside p2/p3 (separate from the boundary), not exactly on them
-        expect(starts.some((st) => !eqPt(st, p2, 1e-6) && dist(st, p2) <= 2.5)).toBe(true);
-        expect(starts.some((st) => !eqPt(st, p3, 1e-6) && dist(st, p3) <= 2.5)).toBe(true);
-
-        for (const cut of [cutA, cutB]) {
-          // fold-clearance (active default) is thickness-scaled, so it can be sub-mm
-          // for steep / low-N pyramids; require only a positive, drawn cut.
-          expect(dist(cut[0], cut[1])).toBeGreaterThan(0);
-        }
+        const tri = parsePathPoints(minorCutSegs[k].d);
+        expect(tri.length).toBe(3); // closed relief triangle
+        // gapped inside the outer corners (separate from the boundary), not on them
+        expect(tri.some((v) => !eqPt(v, p2, 1e-6) && dist(v, p2) <= 2.5)).toBe(true);
+        expect(tri.some((v) => !eqPt(v, p3, 1e-6) && dist(v, p3) <= 2.5)).toBe(true);
+        // positive area: a real triangular hole
+        const area =
+          Math.abs(
+            (tri[1].x - tri[0].x) * (tri[2].y - tri[0].y) -
+              (tri[2].x - tri[0].x) * (tri[1].y - tri[0].y),
+          ) / 2;
+        expect(area).toBeGreaterThan(0);
       }
     }
   });
