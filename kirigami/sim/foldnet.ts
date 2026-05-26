@@ -112,14 +112,20 @@ export function buildFoldNet(state: KirigamiState): FoldNet {
   const polyInnerR: P2[] = [];
   const polyOuterL: P2[] = [];
   const polyOuterR: P2[] = [];
+  const tip: P2[] = [];
   for (let k = 0; k < N; k++) {
-    polyInnerL.push(ring(rApex, angleLeft(k)));
-    polyInnerR.push(ring(rApex, angleRight(k)));
+    const iL = ring(rApex, angleLeft(k));
+    const iR = ring(rApex, angleRight(k));
+    polyInnerL.push(iL);
+    polyInnerR.push(iR);
     polyOuterL.push(ring(s, polyOuterBisector(k) - outerHalf));
     polyOuterR.push(ring(s, polyOuterBisector(k) + outerHalf));
+    // Midpoint of the polygon's two inner corners. The polygon is meshed as ONE triangle
+    // [tip, outerL, outerR]; the molecule meshes around it through tip[k]/tip[k+1] too. With
+    // a single inner node per polygon there is no load-bearing inner edge to resist as both
+    // tips converge at the apex — that bar is what was making the integrator jitter.
+    tip.push({ x: (iL.x + iR.x) / 2, y: (iL.y + iR.y) / 2 });
   }
-  // No midpoint "tip" per face: mountain creases anchor directly at the major-cut corners
-  // (polyInnerL / polyInnerR) so the fold lines align with the apex-hole polygon vertices.
   const mid = (a: P2, b: P2): P2 => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
   const pdist = (a: P2, b: P2): number => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -152,14 +158,13 @@ export function buildFoldNet(state: KirigamiState): FoldNet {
   for (let k = 0; k < N; k++) {
     const kp = (k + 1) % N;
 
-    // Lateral face: quad spanning the two major-cut corners + the two outer base corners,
-    // split into 2 triangles. The mountain creases now run from each major-cut corner
-    // (polyInnerL[k], polyInnerR[k]) straight out to its matching outer corner — aligned
-    // with the apex-hole polygon vertices, not the inner-chord midpoint as before.
-    addTri(polyInnerL[k], polyOuterL[k], polyOuterR[k]);
-    addTri(polyInnerL[k], polyOuterR[k], polyInnerR[k]);
-    mountainKeys.add(ekey(vid(polyInnerL[k]), vid(polyOuterL[k])));
-    mountainKeys.add(ekey(vid(polyInnerR[k]), vid(polyOuterR[k])));
+    // Lateral face: ONE triangle [tip, outerL, outerR]. tip is the single inner-side vertex
+    // (midpoint of polyInnerL/R); both slants are mountain creases, shared with neighbouring
+    // molecule halves. A single inner node keeps the integrator stable as all N tips converge
+    // at the apex during folding (no inner bar to resist that convergence).
+    addTri(tip[k], polyOuterL[k], polyOuterR[k]);
+    mountainKeys.add(ekey(vid(tip[k]), vid(polyOuterL[k])));
+    mountainKeys.add(ekey(vid(tip[k]), vid(polyOuterR[k])));
 
     // Edge molecule k between polygon k (right slant) and polygon k+1 (left slant).
     const innerL = polyInnerR[k];
@@ -200,13 +205,14 @@ export function buildFoldNet(state: KirigamiState): FoldNet {
     cutKeys.add(ekey(vid(outerR1), vid(foldPt)));
     cutKeys.add(ekey(vid(outerL2), vid(foldPt)));
 
-    // Left half (innerL = polyInnerR[k], innerMid, foldPt, outerR1 = polyOuterR[k]).
-    // innerL is now the polygon k's own right inner corner, so the shared edge
-    // innerL→outerR1 IS polygon k's right mountain crease — no midpoint bridging triangle.
+    // Left half (5-gon innerL, innerMid, foldPt, outerR1, tip[k]) fanned from innerMid. The
+    // shared edge outerR1→tip[k] IS polygon k's right slant mountain crease.
     addTri(innerMid, foldPt, outerR1);
-    addTri(innerMid, outerR1, innerL);
-    // Right half (innerR = polyInnerL[k+1], innerMid, foldPt, outerL2 = polyOuterL[k+1]).
-    addTri(innerMid, innerR, outerL2);
+    addTri(innerMid, outerR1, tip[k]);
+    addTri(innerMid, tip[k], innerL);
+    // Right half (5-gon innerR, innerMid, foldPt, outerL2, tip[k+1]).
+    addTri(innerMid, innerR, tip[kp]);
+    addTri(innerMid, tip[kp], outerL2);
     addTri(innerMid, outerL2, foldPt);
   }
 
@@ -261,9 +267,9 @@ export function buildFoldNet(state: KirigamiState): FoldNet {
       }
     }
   }
-  // One apex-tip handle per polygon — the polygon's left major-cut corner. These are the
-  // distinct nodes that converge at the apex when folded (kirigami, not a cone point).
-  const tips = polyInnerL.map((p) => vid(p));
+  // One apex-tip handle per polygon — the inner-chord midpoint. These N distinct nodes
+  // converge at the apex when folded (kirigami: separate nodes, not a welded cone point).
+  const tips = tip.map((p) => vid(p));
 
   // Normalize to ~unit scale (Gershenfeld scales geometry to bounding-sphere radius 1). With
   // mm-scale lengths the stiffness relation k_axial = EA/l0 vs k_crease = k_fold·l0 inverts

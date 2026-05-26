@@ -10,6 +10,7 @@ import {
   CUT_COLOR,
   SCORE_COLOR,
   LINE_STROKE_WIDTH,
+  SCORE_END_GAP,
 } from "@kirigami/model/index.js";
 
 const STATE = computeState({
@@ -90,21 +91,58 @@ describe("buildCricutSvgFiles", () => {
     expect(vb(cut.svg)).toBe(vb(score.svg));
   });
 
-  it("polygon slant edges ARE scored (face↔molecule fold hinges) but NOT cut", () => {
+  it("polygon slants are scored but inset by SCORE_END_GAP so they don't touch the cut", () => {
     const [cut, score] = buildCricutSvgFiles(net);
     const polygons = net.segments.filter((s) => s.role === "polygon");
     expect(polygons.length).toBeGreaterThan(0);
 
-    // each polygon contributes two slants (tip→outerL, tip→outerR) as score paths
+    // every polygon emits two slant lines into score, inset on both ends
+    const folds = net.segments.filter((s) => s.role === "fold").length;
+    const totalScorePaths = (score.svg.match(/<path /g) ?? []).length;
+    expect(totalScorePaths - folds).toBe(2 * polygons.length);
+
     for (const poly of polygons) {
       const [tip, outerL, outerR] = pts(poly.d);
       for (const corner of [outerL, outerR]) {
-        const slantD = `M ${tip!.x} ${tip!.y} L ${corner!.x} ${corner!.y}`;
-        expect(score.svg).toContain(slantD);
-        // and definitely not cut
-        expect(cut.svg).not.toContain(slantD);
+        // the un-inset full-length slant must NOT appear (it would touch both cut paths)
+        const fullSlant = `M ${tip!.x} ${tip!.y} L ${corner!.x} ${corner!.y}`;
+        expect(score.svg).not.toContain(fullSlant);
+        expect(cut.svg).not.toContain(fullSlant);
+
+        // but a shortened slant that lies along the same direction *does* — its endpoints
+        // sit SCORE_END_GAP mm in from tip and corner along the tip→corner axis
+        const dx = corner!.x - tip!.x;
+        const dy = corner!.y - tip!.y;
+        const len = Math.hypot(dx, dy);
+        const ux = dx / len;
+        const uy = dy / len;
+        const a = { x: tip!.x + ux * SCORE_END_GAP, y: tip!.y + uy * SCORE_END_GAP };
+        const b = { x: corner!.x - ux * SCORE_END_GAP, y: corner!.y - uy * SCORE_END_GAP };
+        const fmt3 = (n: number) => String(Math.round(n * 1000) / 1000);
+        const insetD = `M ${fmt3(a.x)} ${fmt3(a.y)} L ${fmt3(b.x)} ${fmt3(b.y)}`;
+        expect(score.svg).toContain(insetD);
       }
     }
+  });
+
+  it("valley-fold score lines are inset too — no endpoint coincides with any boundary vertex", () => {
+    const [, score] = buildCricutSvgFiles(net);
+    const boundary = net.segments.find((s) => s.role === "boundary")!;
+    const boundaryPts = pts(boundary.d);
+
+    // pull every endpoint out of the score paths
+    const scoreDs =
+      score.svg.match(/d="([^"]+)"/g)?.map((m) => m.slice(3, -1)) ?? [];
+    let minGap = Infinity;
+    for (const d of scoreDs) {
+      for (const p of pts(d)) {
+        for (const bp of boundaryPts) {
+          minGap = Math.min(minGap, Math.hypot(p.x - bp.x, p.y - bp.y));
+        }
+      }
+    }
+    // every score endpoint sits a real gap away from every boundary vertex
+    expect(minGap).toBeGreaterThan(0.5);
   });
 });
 

@@ -62,6 +62,7 @@ export {
   CUT_COLOR,
   SCORE_COLOR,
   LINE_STROKE_WIDTH,
+  SCORE_END_GAP,
 } from "./svg-export.js";
 export type {
   CricutSvgFile,

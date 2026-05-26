@@ -22,9 +22,10 @@ describe("FoldNet topology", () => {
   it("builds a connected mesh with the kirigami cut structure", () => {
     const net = buildFoldNet(STATE);
     const N = 6;
-    // 2 lateral tris per polygon (quad anchored at the major-cut corners) + 4 molecule
-    // tris per molecule = 2N + 4N = 6N faces.
-    expect(net.faces.length).toBe(6 * N);
+    // 1 lateral triangle per polygon (anchored at the midpoint tip) + 6 molecule tris per
+    // molecule = N + 6N = 7N faces. The single inner node per polygon keeps the integrator
+    // stable as all N tips converge at the apex (no load-bearing inner edge to resist).
+    expect(net.faces.length).toBe(7 * N);
     // every vertex is referenced by some face
     const used = new Set<number>();
     for (const f of net.faces) f.forEach((v) => used.add(v));

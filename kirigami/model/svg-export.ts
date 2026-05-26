@@ -36,6 +36,13 @@ export const CUT_COLOR = "#000000";
 export const SCORE_COLOR = "#0000ff";
 /** Stroke width (mm) for the exported cut/score lines. */
 export const LINE_STROKE_WIDTH = 0.25;
+/**
+ * Inset (mm) applied to each end of every score line so it doesn't touch a cut path. When a
+ * score-line endpoint lands on the cut boundary (the V-notched silhouette or the apex-hole
+ * rim), Cricut welds the coincident vertex and the score "compacts" the cut body — fragmenting
+ * the imported piece. Pulling both ends inward by this gap keeps the crease clear of the cuts.
+ */
+export const SCORE_END_GAP = 1.5;
 
 export interface CricutSvgFile {
   filename: string;
@@ -274,14 +281,20 @@ function fmt(n: number): string {
 /**
  * Score lines: the valley creases (`fold`) plus each polygon triangle's two slant edges
  * (tip→outerL, tip→outerR), which are the face↔molecule fold hinges. Polygon base edges live
- * on the boundary (cut), not on score.
+ * on the boundary (cut), not on score. Every emitted score line is inset by {@link SCORE_END_GAP}
+ * at both ends so it doesn't touch the cut paths and weld the cut body in Cricut.
  */
 function scoreSegments(net: PatternNet): PatternSegment[] {
-  const folds = net.segments.filter((s) => SCORE_ROLES.includes(s.role));
+  const folds: PatternSegment[] = [];
+  for (const s of net.segments) {
+    if (!SCORE_ROLES.includes(s.role)) continue;
+    const shortened = shortenLine(s.d, SCORE_END_GAP);
+    if (shortened) folds.push({ ...s, d: shortened });
+  }
   return [...folds, ...polygonSlantSegments(net)];
 }
 
-/** Polygon slant edges (tip↔outerL and tip↔outerR per face) as score lines. */
+/** Polygon slant edges (tip↔outerL and tip↔outerR per face) as score lines, end-inset. */
 function polygonSlantSegments(net: PatternNet): PatternSegment[] {
   const out: PatternSegment[] = [];
   for (const seg of net.segments) {
@@ -289,10 +302,36 @@ function polygonSlantSegments(net: PatternNet): PatternSegment[] {
     const verts = parsePathPoints(seg.d);
     if (verts.length < 3) continue;
     const [tip, outerL, outerR] = verts;
-    out.push({ role: "fold", d: `M ${tip.x} ${tip.y} L ${outerL.x} ${outerL.y}` });
-    out.push({ role: "fold", d: `M ${tip.x} ${tip.y} L ${outerR.x} ${outerR.y}` });
+    for (const corner of [outerL, outerR]) {
+      const shortened = shortenLine(
+        `M ${tip!.x} ${tip!.y} L ${corner!.x} ${corner!.y}`,
+        SCORE_END_GAP,
+      );
+      if (shortened) out.push({ role: "fold", d: shortened });
+    }
   }
   return out;
+}
+
+/**
+ * Pull both endpoints of a two-point `M…L…` line inward by `gap` along its own direction.
+ * Returns null when the line is shorter than 2·gap (it would collapse / flip).
+ */
+function shortenLine(d: string, gap: number): string | null {
+  const verts = parsePathPoints(d);
+  if (verts.length < 2) return null;
+  const a = verts[0]!;
+  const b = verts[verts.length - 1]!;
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 2 * gap + 1e-6) return null;
+  const ux = dx / len;
+  const uy = dy / len;
+  return (
+    `M ${fmt(a.x + ux * gap)} ${fmt(a.y + uy * gap)} ` +
+    `L ${fmt(b.x - ux * gap)} ${fmt(b.y - uy * gap)}`
+  );
 }
 
 function parsePathPoints(d: string): { x: number; y: number }[] {
