@@ -6,7 +6,7 @@ import { createZip } from "./zip.js";
  * - `…-cut.svg`   — everything to cut, black, in one layer: the outer outline + the major
  *   (apex-hole) cut + the minor relief slits (`boundary`, `cut`, `minor-cut` roles)
  * - `…-score.svg` — the lines to crease, not cut, blue: the valley creases (`fold` role)
- *   **plus each polygon's two side/slant edges** (the face↔molecule hinges)
+ *   only. The polygon triangle slant sides are NOT exported (neither cut nor scored).
  *
  * `buildCricutZip` bundles both into a single `.zip` whose contents sit in one folder
  * (`<baseName>/…`), since a browser download can't create a folder on disk directly.
@@ -14,12 +14,18 @@ import { createZip } from "./zip.js";
  * Both files share the same `viewBox` and mm size, so they stay registered (aligned) when
  * loaded into Cricut Design Space. Coords are mm, so they import at real size.
  *
- * **Each cut/score is its own line path.** Every segment is emitted as a separate stroked
- * `<path>` (fill `none`) — the outer boundary, the major cut, each minor slit, each crease — so
- * Cricut imports them as distinct, individually selectable cut/score lines rather than one
- * welded compound shape. The minor cuts are also held a small gap away from the boundary (see
- * `MINOR_CUT_GAP` in `pattern.ts`) so they stay separate interior slits rather than joining the
- * outer cut at a shared vertex.
+ * **Cut layer = one `<g id="cut">` with two sibling paths; score stays per-line.**
+ * The smoothest Cricut workflow uploads a kirigami net as one body whose perimeter, apex
+ * hole, and relief slits all get cut together. So the cut layer is a single group with two
+ * paths inside it:
+ *   - a **filled, even-odd path** for the closed cuts — `boundary` (silhouette) + major
+ *     (apex-hole) `cut` (hole) — with `stroke="none"` so the fill edge has no outline halo
+ *     and Cricut doesn't double-cut along it;
+ *   - a **stroked path** for the open `minor-cut` slits — `fill="none"`, single-pass lines,
+ *     no closing kerf rectangle and no perpendicular caps on their back ends.
+ * Minor cuts are held a small gap inside the boundary (`MINOR_CUT_GAP` in `pattern.ts`) so
+ * they remain interior slits and never share a vertex with the outline. Score lines stay
+ * per-segment stroked `<path>`s (Cricut scores *along* a line, so they import fine that way).
  *
  * Face fills (`polygon` interiors, `molecule`, `molecule-fill`) are visual only and excluded;
  * the polygon outer base edges stay on the cut layer via the `boundary` outline.
@@ -71,14 +77,14 @@ export function buildCricutSvgFiles(
   net: PatternNet,
   baseName = "akde-kirigami",
 ): CricutSvgFile[] {
-  const cuts = net.segments.filter((s) => CUT_ROLES.includes(s.role));
+  const cuts = cutSegments(net);
   const scores = scoreSegments(net);
 
   const files: CricutSvgFile[] = [];
   if (cuts.length > 0) {
     files.push({
       filename: `${baseName}-cut.svg`,
-      svg: svgWrap(net, linesMarkup(cuts, "cut", CUT_COLOR, "  ")),
+      svg: svgWrap(net, cutBodyMarkup(cuts, "  ")),
     });
   }
   if (scores.length > 0) {
@@ -105,11 +111,11 @@ export function buildCombinedCricutSvg(
   net: PatternNet,
   baseName = "akde-kirigami",
 ): CricutSvgFile | null {
-  const cuts = net.segments.filter((s) => CUT_ROLES.includes(s.role));
+  const cuts = cutSegments(net);
   const scores = scoreSegments(net);
   if (cuts.length === 0 && scores.length === 0) return null;
   const body = [
-    cuts.length > 0 ? linesMarkup(cuts, "cut", CUT_COLOR, "  ") : "",
+    cuts.length > 0 ? cutBodyMarkup(cuts, "  ") : "",
     scores.length > 0 ? linesMarkup(scores, "score", SCORE_COLOR, "  ") : "",
   ]
     .filter((m) => m.length > 0)
@@ -144,7 +150,7 @@ export function buildCricutZip(
  * `vector-effect="non-scaling-stroke"` so they stay visible at thumbnail size.
  */
 export function buildCricutPreviews(net: PatternNet): CricutPreviews {
-  const cuts = net.segments.filter((s) => CUT_ROLES.includes(s.role));
+  const cuts = cutSegments(net);
   const scores = scoreSegments(net);
   return {
     cut: previewSvg(net, [{ segs: cuts, color: CUT_COLOR }]),
@@ -235,43 +241,50 @@ function linesMarkup(
   );
 }
 
+/**
+ * Cut layer = one `<g id="cut">` with two sibling paths inside it:
+ *   - a filled, even-odd path for the closed cuts (`boundary` + major `cut`) — no stroke, so
+ *     the silhouette and the apex hole render cleanly with no outline ringing the fill edge
+ *     (a fill+stroke compound otherwise paints a thin line halo and double-cuts in Cricut);
+ *   - a stroked path for the open `minor-cut` slits — fill `none`, single-pass lines, no
+ *     closing Z and no perpendicular caps on the slit's back ends.
+ * Keeping both in the same group keeps the cut content together as one drag in Cricut.
+ */
+function cutBodyMarkup(cuts: PatternSegment[], indent = ""): string {
+  const closed: string[] = [];
+  const open: string[] = [];
+  for (const seg of cuts) {
+    const d = seg.d.trim();
+    if (/[zZ]\s*$/.test(d)) closed.push(d);
+    else open.push(d);
+  }
+  const parts: string[] = [];
+  if (closed.length > 0) {
+    parts.push(
+      `${indent}  <path fill="${CUT_COLOR}" fill-rule="evenodd" stroke="none" ` +
+        `d="${closed.join(" ")}" />`,
+    );
+  }
+  if (open.length > 0) {
+    parts.push(
+      `${indent}  <path fill="none" stroke="${CUT_COLOR}" ` +
+        `stroke-width="${LINE_STROKE_WIDTH}" d="${open.join(" ")}" />`,
+    );
+  }
+  return `${indent}<g id="cut">\n${parts.join("\n")}\n${indent}</g>`;
+}
+
 function fmt(n: number): string {
   return Number.isFinite(n) ? String(Math.round(n * 1000) / 1000) : "0";
 }
 
-/** Score lines: the valley creases (`fold`) plus each polygon's two side (slant) edges. */
+/** Score lines: only the valley creases (`fold`). Polygon slants are not exported at all. */
 function scoreSegments(net: PatternNet): PatternSegment[] {
-  const folds = net.segments.filter((s) => SCORE_ROLES.includes(s.role));
-  return [...folds, ...polygonSideSegments(net)];
+  return net.segments.filter((s) => SCORE_ROLES.includes(s.role));
 }
 
-/**
- * The two non-base sides of every polygon triangle (tip→outerL, tip→outerR) as fold lines.
- * These are the slant hinges where each face meets its molecules; the outer base edge stays
- * a cut (it's on the perimeter). Relies on `closedPolyline([tip, outerL, outerR])`.
- */
-function polygonSideSegments(net: PatternNet): PatternSegment[] {
-  const out: PatternSegment[] = [];
-  for (const seg of net.segments) {
-    if (seg.role !== "polygon") continue;
-    const pts = parsePathPoints(seg.d);
-    if (pts.length < 3) continue;
-    const [tip, outerL, outerR] = pts;
-    out.push({ role: "fold", d: lineD(tip, outerL) });
-    out.push({ role: "fold", d: lineD(tip, outerR) });
-  }
-  return out;
+/** Cut segments: only the explicit `boundary`, `cut`, and `minor-cut` roles from the net. */
+function cutSegments(net: PatternNet): PatternSegment[] {
+  return net.segments.filter((s) => CUT_ROLES.includes(s.role));
 }
 
-function parsePathPoints(d: string): { x: number; y: number }[] {
-  const nums = d.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/g)?.map(Number) ?? [];
-  const pts: { x: number; y: number }[] = [];
-  for (let i = 0; i + 1 < nums.length; i += 2) {
-    pts.push({ x: nums[i], y: nums[i + 1] });
-  }
-  return pts;
-}
-
-function lineD(a: { x: number; y: number }, b: { x: number; y: number }): string {
-  return `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
-}

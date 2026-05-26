@@ -4,7 +4,7 @@ This document is the onboarding guide for developers working on AKDE. It explain
 
 ## 1. Project purpose
 
-AKDE is a small TypeScript/Vite application that computes and renders a uniform edge-molecule kirigami pattern for a regular `N`-gon pyramid. The mathematical source of truth is [plan/plan.md](/Users/emredayangac/Documents/AKDE/plan/plan.md).
+AKDE is a small TypeScript/Vite application that computes and renders a uniform edge-molecule kirigami pattern for a regular `N`-gon pyramid. The mathematical source of truth is [theory/plan.md](/Users/emredayangac/Documents/AKDE/theory/plan.md).
 
 The implementation goal is narrow on purpose:
 
@@ -37,6 +37,15 @@ npm run test
 ```
 
 The Vite app root is `app/`, so the browser entry point is [app/index.html](/Users/emredayangac/Documents/AKDE/app/index.html).
+Production builds are emitted to repository-root `dist/`, which is the GitHub Pages artifact uploaded by [.github/workflows/deploy.yml](/Users/emredayangac/Documents/AKDE/.github/workflows/deploy.yml).
+
+### GitHub Pages deployment
+
+- Source root for Vite is `app/`.
+- Publish artifact is root `dist/`.
+- Default production base path is `/AKDE/` in [vite.config.ts](/Users/emredayangac/Documents/AKDE/vite.config.ts).
+- Local dev keeps base `/`, so do not hardcode `/AKDE/` into app HTML, CSS, or runtime routes.
+- If the repo slug or Pages URL changes, update `VITE_BASE` or the fallback in [vite.config.ts](/Users/emredayangac/Documents/AKDE/vite.config.ts) to match.
 
 ## 3. Working rules
 
@@ -101,12 +110,35 @@ Invalid inputs short-circuit the pipeline: derived output and pattern output are
 - [CONTRIBUTING.md](/Users/emredayangac/Documents/AKDE/CONTRIBUTING.md)
   - This document.
 
-- [current-formulas.tex](/Users/emredayangac/Documents/AKDE/current-formulas.tex)
+- [theory/current-formulas.tex](/Users/emredayangac/Documents/AKDE/theory/current-formulas.tex)
   - Implementation-synchronized formula reference in LaTeX.
   - Links each formula block to its paper, textbook, or code authority.
 
-- [current-formulas.pdf](/Users/emredayangac/Documents/AKDE/current-formulas.pdf)
+- [theory/current-formulas.pdf](/Users/emredayangac/Documents/AKDE/theory/current-formulas.pdf)
   - Compiled formula handout for quick review outside the source tree.
+
+- [docs/subsystems/README.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/README.md)
+  - Index for detailed subsystem docs.
+  - Start here if you need implementation detail beyond the overview in this file.
+
+- [docs/subsystems/model/README.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/model/README.md)
+  - Detailed model-layer docs split by topic.
+
+- [docs/subsystems/views/README.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/views/README.md)
+  - Detailed DOM/view-layer docs split by topic.
+
+- [docs/subsystems/simulation/README.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/simulation/README.md)
+  - Detailed simulation docs split into topology, solver, GPU, and scene setup.
+
+- [docs/subsystems/deployment/README.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/deployment/README.md)
+  - Detailed deployment docs split into Vite/Pages structure and workflow behavior.
+
+- [docs/subsystems/tests/README.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/tests/README.md)
+  - Detailed test docs split into coverage map and recommended run workflows.
+
+- [REWRITEABILITY.md](/Users/emredayangac/Documents/AKDE/REWRITEABILITY.md)
+  - File-specific rewrite guidance.
+  - Identifies which files are safe to replace, which contracts must stay stable, and which rewrites require coordinated changes.
 
 - [package.json](/Users/emredayangac/Documents/AKDE/package.json)
   - Defines the dev workflow:
@@ -122,20 +154,29 @@ Invalid inputs short-circuit the pipeline: derived output and pattern output are
 
 - [vite.config.ts](/Users/emredayangac/Documents/AKDE/vite.config.ts)
   - Sets `app/` as the Vite root.
+  - Emits production builds to root `dist/` for GitHub Pages.
+  - Uses `/AKDE/` as the default production base path, overrideable with `VITE_BASE`.
   - Defines the `@kirigami` alias for runtime imports.
   - Opens the browser on dev start.
+
+- [.github/workflows/deploy.yml](/Users/emredayangac/Documents/AKDE/.github/workflows/deploy.yml)
+  - Builds the app on pushes to `main`.
+  - Uploads root `dist/` and deploys it with the Pages GitHub Actions flow.
 
 - [vitest.config.ts](/Users/emredayangac/Documents/AKDE/vitest.config.ts)
   - Runs tests in Node, not a browser.
   - Reuses the same alias strategy as Vite.
 
-### Planning files
+### Theory files
 
-- [plan/plan.md](/Users/emredayangac/Documents/AKDE/plan/plan.md)
+- [theory/README.md](/Users/emredayangac/Documents/AKDE/theory/README.md)
+  - Index for theory and formula docs.
+
+- [theory/plan.md](/Users/emredayangac/Documents/AKDE/theory/plan.md)
   - Mathematical and product spec.
   - Treat this as the design authority.
 
-- [plan/references.md](/Users/emredayangac/Documents/AKDE/plan/references.md)
+- [theory/references.md](/Users/emredayangac/Documents/AKDE/theory/references.md)
   - Bibliography and paper references.
 
 ### App bootstrap
@@ -372,7 +413,7 @@ When you change the code:
 
 Use this sequence.
 
-1. Check whether the change affects the math contract in [plan/plan.md](/Users/emredayangac/Documents/AKDE/plan/plan.md).
+1. Check whether the change affects the math contract in [theory/plan.md](/Users/emredayangac/Documents/AKDE/theory/plan.md).
 2. Add or update types in [kirigami/model/types.ts](/Users/emredayangac/Documents/AKDE/kirigami/model/types.ts).
 3. Implement core math in the model first.
 4. Add or update tests in `tests/`.
@@ -432,7 +473,7 @@ Before opening a change, check:
 - `node_modules/`
   - Installed dependencies, not source.
 
-- [plan/plan.md](/Users/emredayangac/Documents/AKDE/plan/plan.md)
+- [theory/plan.md](/Users/emredayangac/Documents/AKDE/theory/plan.md)
   - Edit only when the actual mathematical or product contract changes.
 
 ## 15. Recommended first tasks for a new developer

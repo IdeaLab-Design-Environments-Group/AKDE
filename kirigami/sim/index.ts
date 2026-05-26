@@ -5,7 +5,7 @@
  *
  * The Three.js view (`kirigami/view/sim-canvas.ts`) and the GPU solver (`./gpu/`) are NOT
  * re-exported here, so this barrel stays importable in plain Node (vitest). See
- * `plan/sim-ecs.md` for architecture.
+ * `theory/sim-ecs.md` for architecture.
  */
 export { buildFoldNet, foldNetFromMesh } from "./foldnet.js";
 export type { FoldNet, FoldNetEdge, EdgeAssignment } from "./foldnet.js";

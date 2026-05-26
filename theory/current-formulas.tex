@@ -22,7 +22,9 @@
 
 This document lists the formulas currently used by the AKDE implementation under
 \texttt{kirigami/model/}. It reflects the active code paths, including clamps,
-validation gates, and the currently selected minor-cut formula.
+validation gates, and the currently selected minor-cut formula. Where an input
+is carried by the product but not consumed by the geometry derivation, that is
+stated explicitly instead of back-filling aspirational math.
 
 \section{Inputs and Symbols}
 
@@ -33,6 +35,10 @@ L_o &:= \text{outer polygon-face edge length on the perimeter (mm)}, \\
 H &:= K_{\mathrm{tot}} = \text{vertical apex height (mm)}, \\
 T &:= \text{material thickness (mm)}.
 \end{align*}
+
+In the current implementation, \(L_o\) affects pattern construction and export
+layout, but it does not enter the scalar geometry derivation in
+\texttt{kirigami/model/geometry.ts}.
 
 The implementation validates
 \[
@@ -174,6 +180,13 @@ This is the same as
 \]
 
 \formularefs{Liu et al. state that the minor cut depends on ``the angle between adjacent mesh faces and the width of the hinge'' and refer to Figure~2, but they do not give a closed-form equation; see ``\href{https://static1.squarespace.com/static/5783b6f903596e5098f3fce8/t/5dd2e95aee053940522eab1a/1574103423054/DETC2019-97557.pdf}{Programmable Kirigami},'' the paragraph immediately before Figure~2. The formulas \(d_{\mathrm{clear}}=T\tan(\gamma/2)\) and \(\ell=\sqrt{(w/2)^2+r_{\mathrm{apex}}^2}\) are AKDE-specific constructions in \texttt{kirigami/model/geometry.ts}; the current branch is \texttt{MINOR\_CUT\_FORMULA = "fold-reach"}.}
+
+The implementation exposes the derived values
+\[
+\texttt{moleculeEndLeg} = D,
+\qquad
+\texttt{minorCutLength} = \ell.
+\]
 
 \section{Constraint Equations}
 

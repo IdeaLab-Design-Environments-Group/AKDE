@@ -41,25 +41,36 @@ describe("buildCricutSvgFiles", () => {
     }
   });
 
-  it("cut file = one line <path> per cut segment (boundary + major + minor cuts), all black", () => {
+  it("cut file = filled body in <g id='cut'> with NO stroke halo around the fill edge", () => {
     const [cut, score] = buildCricutSvgFiles(net);
-    const cutCount = net.segments.filter(
+    const cutSegs = net.segments.filter(
       (s) => s.role === "boundary" || s.role === "cut" || s.role === "minor-cut",
-    ).length;
-    const polygonCount = net.segments.filter((s) => s.role === "polygon").length;
-    const scoreCount =
-      net.segments.filter((s) => s.role === "fold").length + 2 * polygonCount;
+    );
+    const closedCount = cutSegs.filter((s) => /[zZ]\s*$/.test(s.d.trim())).length;
+    const openCount = cutSegs.length - closedCount;
+    const scoreCount = net.segments.filter((s) => s.role === "fold").length;
 
-    // all cuts in one layer, each its own line — NOT one welded compound path
-    expect((cut.svg.match(/<path /g) ?? []).length).toBe(cutCount);
+    // wrapped in one <g id="cut">; the body path is always emitted, a stroked sibling only
+    // when there are open cuts. pattern.ts currently emits all minor cuts as closed triangles,
+    // so the real net only needs the body path — and crucially that path has stroke="none",
+    // killing the previous halo around the silhouette / apex-hole edge.
     expect(cut.svg).toContain('id="cut"');
-    expect(cut.svg).toContain(`stroke="${CUT_COLOR}"`);
-    expect(cut.svg).not.toContain("fill-rule");
-    for (const p of cut.svg.match(/<path [^>]*\/>/g) ?? []) {
-      expect(p).toContain('fill="none"');
-      expect(p).toContain(`stroke="${CUT_COLOR}"`);
+    const paths = cut.svg.match(/<path [^>]*\/>/g) ?? [];
+    expect(paths.length).toBe(openCount > 0 ? 2 : 1);
+
+    const body = paths.find((p) => p.includes(`fill="${CUT_COLOR}"`))!;
+    expect(body).toContain('fill-rule="evenodd"');
+    expect(body).toContain('stroke="none"'); // ← the artifact fix
+    expect((body.match(/M/g) ?? []).length).toBe(closedCount);
+
+    if (openCount > 0) {
+      const minor = paths.find((p) => p.includes('fill="none"'))!;
+      expect(minor).toContain(`stroke="${CUT_COLOR}"`);
+      expect(minor).toContain(`stroke-width="${LINE_STROKE_WIDTH}"`);
+      expect((minor.match(/M/g) ?? []).length).toBe(openCount);
     }
 
+    // score stays as stroked lines, blue, folds only — no polygon slants
     expect((score.svg.match(/<path /g) ?? []).length).toBe(scoreCount);
     expect(score.svg).toContain('id="score"');
     expect(score.svg).toContain(SCORE_COLOR);
@@ -93,12 +104,32 @@ describe("buildCricutSvgFiles", () => {
     const vb = (svg: string) => svg.match(/viewBox="([^"]+)"/)?.[1];
     expect(vb(cut.svg)).toBe(vb(score.svg));
   });
+
+  it("triangle slant edges are NOT exported (neither cut nor score) — only the outer base", () => {
+    const [cut, score] = buildCricutSvgFiles(net);
+    const polygons = net.segments.filter((s) => s.role === "polygon");
+    expect(polygons.length).toBeGreaterThan(0);
+
+    // each triangle's tip↔outerL and tip↔outerR endpoints should not appear in either layer
+    // (the outer base is on the boundary anyway, just check the slant-specific endpoints)
+    for (const poly of polygons) {
+      const [tip, outerL, outerR] = pts(poly.d);
+      for (const corner of [outerL, outerR]) {
+        const slantLineD = `${tip.x} ${tip.y} L ${corner.x} ${corner.y}`;
+        const slantLineDRev = `${corner.x} ${corner.y} L ${tip.x} ${tip.y}`;
+        expect(score.svg).not.toContain(slantLineD);
+        expect(score.svg).not.toContain(slantLineDRev);
+        expect(cut.svg).not.toContain(slantLineD);
+        expect(cut.svg).not.toContain(slantLineDRev);
+      }
+    }
+  });
 });
 
 describe("buildCombinedCricutSvg", () => {
   const net = buildPatternNet(STATE);
 
-  it("emits one mm-sized SVG with stroked cut and score line layers", () => {
+  it("emits one mm-sized SVG with a filled cut unibody and a stroked score layer", () => {
     const file = buildCombinedCricutSvg(net);
     expect(file).not.toBeNull();
     expect(file!.filename).toBe("akde-kirigami-combined.svg");
@@ -106,7 +137,9 @@ describe("buildCombinedCricutSvg", () => {
     expect(file!.svg).toMatch(/width="[\d.]+mm" height="[\d.]+mm"/);
     expect(file!.svg).toContain('id="cut"');
     expect(file!.svg).toContain('id="score"');
-    expect(file!.svg).toContain(`stroke="${CUT_COLOR}"`);
+    // cut layer is filled (unibody with holes), score layer is stroked lines
+    expect(file!.svg).toContain(`fill="${CUT_COLOR}"`);
+    expect(file!.svg).toContain('fill-rule="evenodd"');
     expect(file!.svg).toContain(`stroke="${SCORE_COLOR}"`);
   });
 
@@ -125,26 +158,48 @@ describe("buildCombinedCricutSvg", () => {
   });
 });
 
-describe("cuts export as separate line paths (not one compound path)", () => {
-  it("each cut segment is its own <path> with its exact geometry preserved", () => {
-    const fakeNet = {
-      viewBox: [0, 0, 20, 20] as [number, number, number, number],
-      segments: [
-        { role: "boundary" as const, d: "M 0 0 L 20 0 L 20 20 L 0 20 Z" },
-        { role: "cut" as const, d: "M 5 5 L 15 5 L 15 15 L 5 15 Z" }, // major cut
-        { role: "minor-cut" as const, d: "M 6 10 L 9 10" }, // minor slit
-        { role: "minor-cut" as const, d: "M 11 10 L 14 10" }, // minor slit
-      ],
-    };
-    const [cut] = buildCricutSvgFiles(fakeNet);
+describe("cut layer: filled body + stroked minor cuts in one group (no fill-edge halo)", () => {
+  const fakeNet = {
+    viewBox: [0, 0, 20, 20] as [number, number, number, number],
+    segments: [
+      { role: "boundary" as const, d: "M 0 0 L 20 0 L 20 20 L 0 20 Z" },
+      { role: "cut" as const, d: "M 5 5 L 15 5 L 15 15 L 5 15 Z" }, // major-cut hole
+      { role: "minor-cut" as const, d: "M 6 10 L 9 10" }, // single-line slit
+      { role: "minor-cut" as const, d: "M 11 10 L 14 10" },
+    ],
+  };
 
+  it("splits into two paths: filled body (no stroke = no halo) and stroked minor cuts", () => {
+    const [cut] = buildCricutSvgFiles(fakeNet);
     const paths = cut.svg.match(/<path [^>]*\/>/g) ?? [];
-    expect(paths.length).toBe(4); // all four cut lines in one cut layer, each its own path
-    for (const seg of fakeNet.segments) {
-      expect(cut.svg).toContain(`d="${seg.d}"`);
-    }
-    expect(cut.svg).not.toContain("fill-rule");
-    expect(cut.svg).toContain(`stroke-width="${LINE_STROKE_WIDTH}"`);
+    expect(paths).toHaveLength(2);
+
+    const body = paths.find((p) => p.includes(`fill="${CUT_COLOR}"`))!;
+    expect(body).toContain('fill-rule="evenodd"');
+    expect(body).toContain('stroke="none"'); // critical: no stroke around the fill edge
+    // body holds exactly the two closed cut segments
+    expect(body).toContain("M 0 0 L 20 0 L 20 20 L 0 20 Z");
+    expect(body).toContain("M 5 5 L 15 5 L 15 15 L 5 15 Z");
+    // and does NOT hold the open minor-cut lines
+    expect(body).not.toContain("M 6 10 L 9 10");
+    expect(body).not.toContain("M 11 10 L 14 10");
+
+    const minor = paths.find((p) => p.includes('fill="none"'))!;
+    expect(minor).toContain(`stroke="${CUT_COLOR}"`);
+    expect(minor).toContain("M 6 10 L 9 10");
+    expect(minor).toContain("M 11 10 L 14 10");
+  });
+
+  it("minor cuts have no perpendicular back-end caps (open lines, not closed rectangles)", () => {
+    const [cut] = buildCricutSvgFiles(fakeNet);
+    const minor = (cut.svg.match(/<path [^>]*\/>/g) ?? []).find((p) =>
+      p.includes('fill="none"'),
+    )!;
+    const minorD = minor.match(/ d="([^"]*)"/)?.[1] ?? "";
+    expect(minorD).not.toMatch(/[zZ]/); // never closed = no caps
+    const subs = minorD.split(/(?=M )/).map((s) => s.trim()).filter(Boolean);
+    expect(subs).toHaveLength(2);
+    for (const sub of subs) expect(pts(sub)).toHaveLength(2);
   });
 });
 

@@ -6,7 +6,7 @@ target dihedral; full net folds into a pyramid whose height tracks `H`); GPU sol
 drives the GPU path with a CPU fallback; wired to the app via the **3D Sim** button.
 
 **Goal:** *Forward* simulation — fold the flat DETC kirigami net into the 3D pyramid, physically
-demonstrating the closure that C1/C2 assert algebraically (`plan/plan.md`). Complements the
+demonstrating the closure that C1/C2 assert algebraically (`theory/plan.md`). Complements the
 static planner; does not change v1 geometry, constraints, or SVG export.
 
 ## Method (combines two papers)

@@ -540,7 +540,7 @@ Face fills (`polygon` interiors, `molecule`, `molecule-fill`) are visual only an
 
 | Step | Deliverable |
 |------|-------------|
-| **1** | Repo scaffold: `plan/`, `kirigami/*`, `app/index.html`, README → `plan/plan.md` |
+| **1** | Repo scaffold: `theory/`, `kirigami/*`, `app/index.html`, README → `theory/plan.md` |
 | **2** | `kirigami/model/types.ts` — params, constraint ids, geometry DTOs |
 | **3** | `geometry.ts` — \(K_{\mathrm{tot}}=H\to R\to\eta(H,R,N)\to\theta\), \(w=2s\sin(\theta/2)\), derived \(\psi,\kappa,\gamma,r_{\mathrm{apex}}\) |
 | **4** | `constraints.ts` — C1–C6 residuals + thresholds; `validation.ts` — \(H>0\), \(T>0\) |
@@ -564,9 +564,14 @@ Face fills (`polygon` interiors, `molecule`, `molecule-fill`) are visual only an
 ```
 AKDE/
 ├── README.md                 → points here
-├── plan/
+├── theory/
+│   ├── README.md
 │   ├── plan.md               # this document
-│   └── references.md         # bibliography
+│   ├── references.md         # bibliography
+│   ├── formulas.md           # short formula summary
+│   ├── current-formulas.tex  # LaTeX formula authority
+│   ├── current-formulas.pdf  # compiled formula sheet
+│   └── sim-ecs.md            # simulation theory notes
 ├── app/
 │   ├── index.html
 │   ├── main.ts
@@ -659,7 +664,7 @@ Assume **v1:** user \(K_{\mathrm{tot}} = H\) is **vertical altitude** (**mm**) a
 |------|--------|
 | Root `plan.md` | **None existed** in empty repo; do not recreate at root |
 | Blockly / 30-step CBP | **Not carried forward** |
-| `README.md` | Points to `plan/plan.md` |
+| `README.md` | Points to `theory/plan.md` |
 
 ---
 
