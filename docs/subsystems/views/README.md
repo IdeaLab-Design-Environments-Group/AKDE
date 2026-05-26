@@ -18,3 +18,6 @@ This folder documents the DOM-facing view layer.
 
 - [barrel.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/views/barrel.md)
   - Re-export surface used by the app shell.
+
+- [file-catalog.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/views/file-catalog.md)
+  - Detailed file-by-file breakdown of the view subsystem.

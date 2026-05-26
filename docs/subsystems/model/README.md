@@ -18,3 +18,6 @@ This folder documents the mathematical and export core of AKDE.
 
 - [barrel.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/model/barrel.md)
   - The purpose and risk profile of `kirigami/model/index.ts`.
+
+- [file-catalog.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/model/file-catalog.md)
+  - Detailed file-by-file breakdown of the model subsystem.

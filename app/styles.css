@@ -204,11 +204,6 @@ body {
   content: "---- ";
 }
 
-.legend-item.legend-minor-cut::before {
-  content: "---- ";
-  color: #e0245e;
-}
-
 /* DETC-style: yellow face panels; gray molecules; black outer outline */
 .pattern-svg .stroke-polygon {
   fill: #ffeb3b;
@@ -236,12 +231,6 @@ body {
 .pattern-svg .stroke-cut {
   fill: none;
   stroke: #111;
-  stroke-width: 1.25;
-}
-
-.pattern-svg .stroke-minor-cut {
-  fill: none;
-  stroke: #e0245e;
   stroke-width: 1.25;
 }
 

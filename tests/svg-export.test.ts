@@ -41,34 +41,29 @@ describe("buildCricutSvgFiles", () => {
     }
   });
 
-  it("cut file = filled body in <g id='cut'> with NO stroke halo around the fill edge", () => {
+  it("cut file = single filled body in <g id='cut'> with NO stroke halo around the fill edge", () => {
     const [cut, score] = buildCricutSvgFiles(net);
     const cutSegs = net.segments.filter(
-      (s) => s.role === "boundary" || s.role === "cut" || s.role === "minor-cut",
+      (s) => s.role === "boundary" || s.role === "cut",
     );
     const closedCount = cutSegs.filter((s) => /[zZ]\s*$/.test(s.d.trim())).length;
-    const openCount = cutSegs.length - closedCount;
-    const scoreCount = net.segments.filter((s) => s.role === "fold").length;
+    // score = valley folds + 2 slant edges per polygon (the face↔molecule fold hinges)
+    const polygonCount = net.segments.filter((s) => s.role === "polygon").length;
+    const scoreCount =
+      net.segments.filter((s) => s.role === "fold").length + 2 * polygonCount;
 
-    // wrapped in one <g id="cut">; the body path is always emitted, a stroked sibling only
-    // when there are open cuts. pattern.ts currently emits all minor cuts as closed triangles,
-    // so the real net only needs the body path — and crucially that path has stroke="none",
-    // killing the previous halo around the silhouette / apex-hole edge.
+    // The V-notched boundary + the major-cut hole are both closed paths, so the cut layer is
+    // just ONE filled-evenodd path with stroke="none" — no halo around the fill edge, no
+    // separate slits, the relief wedges are already outside the silhouette.
     expect(cut.svg).toContain('id="cut"');
     const paths = cut.svg.match(/<path [^>]*\/>/g) ?? [];
-    expect(paths.length).toBe(openCount > 0 ? 2 : 1);
+    expect(paths.length).toBe(1);
 
-    const body = paths.find((p) => p.includes(`fill="${CUT_COLOR}"`))!;
+    const body = paths[0]!;
+    expect(body).toContain(`fill="${CUT_COLOR}"`);
     expect(body).toContain('fill-rule="evenodd"');
-    expect(body).toContain('stroke="none"'); // ← the artifact fix
+    expect(body).toContain('stroke="none"');
     expect((body.match(/M/g) ?? []).length).toBe(closedCount);
-
-    if (openCount > 0) {
-      const minor = paths.find((p) => p.includes('fill="none"'))!;
-      expect(minor).toContain(`stroke="${CUT_COLOR}"`);
-      expect(minor).toContain(`stroke-width="${LINE_STROKE_WIDTH}"`);
-      expect((minor.match(/M/g) ?? []).length).toBe(openCount);
-    }
 
     // score stays as stroked lines, blue, folds only — no polygon slants
     expect((score.svg.match(/<path /g) ?? []).length).toBe(scoreCount);
@@ -81,22 +76,12 @@ describe("buildCricutSvgFiles", () => {
     expect(score.svg).not.toContain('id="cut"');
   });
 
-  it("minor cuts are SEPARATE lines: no slit endpoint touches the outer boundary", () => {
-    const minorCuts = net.segments.filter((s) => s.role === "minor-cut");
+  it("the boundary V-notches inward at each molecule (wedges outside the silhouette)", () => {
     const boundary = net.segments.find((s) => s.role === "boundary")!;
-    expect(minorCuts.length).toBeGreaterThan(0);
-    const boundaryPts = pts(boundary.d);
-
-    let minGap = Infinity;
-    for (const mc of minorCuts) {
-      for (const end of pts(mc.d)) {
-        for (const b of boundaryPts) {
-          minGap = Math.min(minGap, Math.hypot(end.x - b.x, end.y - b.y));
-        }
-      }
-    }
-    // every minor-cut endpoint is held clear of every boundary vertex (a real gap, not shared)
-    expect(minGap).toBeGreaterThan(0.5);
+    const bp = pts(boundary.d);
+    // 3N vertices for N=6 → 18. Equivalently: vertex count is divisible by 3.
+    expect(bp.length).toBe(18);
+    expect(bp.length % 3).toBe(0);
   });
 
   it("both files share the same viewBox so they stay registered", () => {
@@ -105,22 +90,19 @@ describe("buildCricutSvgFiles", () => {
     expect(vb(cut.svg)).toBe(vb(score.svg));
   });
 
-  it("triangle slant edges are NOT exported (neither cut nor score) — only the outer base", () => {
+  it("polygon slant edges ARE scored (face↔molecule fold hinges) but NOT cut", () => {
     const [cut, score] = buildCricutSvgFiles(net);
     const polygons = net.segments.filter((s) => s.role === "polygon");
     expect(polygons.length).toBeGreaterThan(0);
 
-    // each triangle's tip↔outerL and tip↔outerR endpoints should not appear in either layer
-    // (the outer base is on the boundary anyway, just check the slant-specific endpoints)
+    // each polygon contributes two slants (tip→outerL, tip→outerR) as score paths
     for (const poly of polygons) {
       const [tip, outerL, outerR] = pts(poly.d);
       for (const corner of [outerL, outerR]) {
-        const slantLineD = `${tip.x} ${tip.y} L ${corner.x} ${corner.y}`;
-        const slantLineDRev = `${corner.x} ${corner.y} L ${tip.x} ${tip.y}`;
-        expect(score.svg).not.toContain(slantLineD);
-        expect(score.svg).not.toContain(slantLineDRev);
-        expect(cut.svg).not.toContain(slantLineD);
-        expect(cut.svg).not.toContain(slantLineDRev);
+        const slantD = `M ${tip!.x} ${tip!.y} L ${corner!.x} ${corner!.y}`;
+        expect(score.svg).toContain(slantD);
+        // and definitely not cut
+        expect(cut.svg).not.toContain(slantD);
       }
     }
   });
@@ -158,48 +140,27 @@ describe("buildCombinedCricutSvg", () => {
   });
 });
 
-describe("cut layer: filled body + stroked minor cuts in one group (no fill-edge halo)", () => {
+describe("cut layer: single filled-evenodd body (silhouette + apex hole), no halo, no slits", () => {
   const fakeNet = {
     viewBox: [0, 0, 20, 20] as [number, number, number, number],
     segments: [
       { role: "boundary" as const, d: "M 0 0 L 20 0 L 20 20 L 0 20 Z" },
       { role: "cut" as const, d: "M 5 5 L 15 5 L 15 15 L 5 15 Z" }, // major-cut hole
-      { role: "minor-cut" as const, d: "M 6 10 L 9 10" }, // single-line slit
-      { role: "minor-cut" as const, d: "M 11 10 L 14 10" },
     ],
   };
 
-  it("splits into two paths: filled body (no stroke = no halo) and stroked minor cuts", () => {
+  it("emits exactly one filled-evenodd path with no stroke (no fill-edge halo, no slits)", () => {
     const [cut] = buildCricutSvgFiles(fakeNet);
     const paths = cut.svg.match(/<path [^>]*\/>/g) ?? [];
-    expect(paths).toHaveLength(2);
+    expect(paths).toHaveLength(1);
 
-    const body = paths.find((p) => p.includes(`fill="${CUT_COLOR}"`))!;
+    const body = paths[0];
+    expect(body).toContain(`fill="${CUT_COLOR}"`);
     expect(body).toContain('fill-rule="evenodd"');
     expect(body).toContain('stroke="none"'); // critical: no stroke around the fill edge
-    // body holds exactly the two closed cut segments
+    // body holds both closed cut segments concatenated into one path
     expect(body).toContain("M 0 0 L 20 0 L 20 20 L 0 20 Z");
     expect(body).toContain("M 5 5 L 15 5 L 15 15 L 5 15 Z");
-    // and does NOT hold the open minor-cut lines
-    expect(body).not.toContain("M 6 10 L 9 10");
-    expect(body).not.toContain("M 11 10 L 14 10");
-
-    const minor = paths.find((p) => p.includes('fill="none"'))!;
-    expect(minor).toContain(`stroke="${CUT_COLOR}"`);
-    expect(minor).toContain("M 6 10 L 9 10");
-    expect(minor).toContain("M 11 10 L 14 10");
-  });
-
-  it("minor cuts have no perpendicular back-end caps (open lines, not closed rectangles)", () => {
-    const [cut] = buildCricutSvgFiles(fakeNet);
-    const minor = (cut.svg.match(/<path [^>]*\/>/g) ?? []).find((p) =>
-      p.includes('fill="none"'),
-    )!;
-    const minorD = minor.match(/ d="([^"]*)"/)?.[1] ?? "";
-    expect(minorD).not.toMatch(/[zZ]/); // never closed = no caps
-    const subs = minorD.split(/(?=M )/).map((s) => s.trim()).filter(Boolean);
-    expect(subs).toHaveLength(2);
-    for (const sub of subs) expect(pts(sub)).toHaveLength(2);
   });
 });
 

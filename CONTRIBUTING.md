@@ -121,6 +121,12 @@ Invalid inputs short-circuit the pipeline: derived output and pattern output are
   - Index for detailed subsystem docs.
   - Start here if you need implementation detail beyond the overview in this file.
 
+- [docs/subsystems/app-shell/README.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/app-shell/README.md)
+  - Detailed app-shell docs split into overview and file catalog.
+
+- [docs/subsystems/controller/README.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/controller/README.md)
+  - Detailed controller docs split into overview and file catalog.
+
 - [docs/subsystems/model/README.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/model/README.md)
   - Detailed model-layer docs split by topic.
 

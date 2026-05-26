@@ -3,10 +3,12 @@ import { createZip } from "./zip.js";
 
 /**
  * Cricut-ready SVG export, as **two separate files** packed into one folder:
- * - `…-cut.svg`   — everything to cut, black, in one layer: the outer outline + the major
- *   (apex-hole) cut + the minor relief slits (`boundary`, `cut`, `minor-cut` roles)
- * - `…-score.svg` — the lines to crease, not cut, blue: the valley creases (`fold` role)
- *   only. The polygon triangle slant sides are NOT exported (neither cut nor scored).
+ * - `…-cut.svg`   — everything to cut, black: the outer outline (which **V-notches inward at
+ *   each molecule** so the relief wedge is already outside the silhouette — no separate slits)
+ *   plus the major apex-hole cut. Roles `boundary` and `cut`.
+ * - `…-score.svg` — the lines to crease, not cut, blue: the valley creases (`fold` role,
+ *   each shortened to the wedge-vertex foldPt at the outer end) **plus each polygon
+ *   triangle's two slant edges** (tip↔outerL, tip↔outerR) — the face↔molecule fold hinges.
  *
  * `buildCricutZip` bundles both into a single `.zip` whose contents sit in one folder
  * (`<baseName>/…`), since a browser download can't create a folder on disk directly.
@@ -14,25 +16,18 @@ import { createZip } from "./zip.js";
  * Both files share the same `viewBox` and mm size, so they stay registered (aligned) when
  * loaded into Cricut Design Space. Coords are mm, so they import at real size.
  *
- * **Cut layer = one `<g id="cut">` with two sibling paths; score stays per-line.**
- * The smoothest Cricut workflow uploads a kirigami net as one body whose perimeter, apex
- * hole, and relief slits all get cut together. So the cut layer is a single group with two
- * paths inside it:
- *   - a **filled, even-odd path** for the closed cuts — `boundary` (silhouette) + major
- *     (apex-hole) `cut` (hole) — with `stroke="none"` so the fill edge has no outline halo
- *     and Cricut doesn't double-cut along it;
- *   - a **stroked path** for the open `minor-cut` slits — `fill="none"`, single-pass lines,
- *     no closing kerf rectangle and no perpendicular caps on their back ends.
- * Minor cuts are held a small gap inside the boundary (`MINOR_CUT_GAP` in `pattern.ts`) so
- * they remain interior slits and never share a vertex with the outline. Score lines stay
- * per-segment stroked `<path>`s (Cricut scores *along* a line, so they import fine that way).
+ * **Cut layer = one `<g id="cut">` with a single filled even-odd path.** The smoothest Cricut
+ * workflow uploads a kirigami net as one body whose V-notched perimeter and apex hole get cut
+ * together. The cut layer is therefore a filled even-odd path (silhouette + apex-hole hole)
+ * with `stroke="none"` — Cricut traces the fill edges as one continuous cut, no halo and no
+ * double-cutting. Score lines stay per-segment stroked `<path>`s (Cricut scores *along* a line,
+ * so they import fine that way).
  *
  * Face fills (`polygon` interiors, `molecule`, `molecule-fill`) are visual only and excluded;
  * the polygon outer base edges stay on the cut layer via the `boundary` outline.
  */
 
-/** Everything cut, in one layer: outer outline + major (apex-hole) cut + minor relief slits. */
-const CUT_ROLES: readonly PatternStrokeRole[] = ["boundary", "cut", "minor-cut"];
+const CUT_ROLES: readonly PatternStrokeRole[] = ["boundary", "cut"];
 const SCORE_ROLES: readonly PatternStrokeRole[] = ["fold"];
 
 /** Cut layer colour — assign "Cut" in Cricut Design Space. */
@@ -242,13 +237,11 @@ function linesMarkup(
 }
 
 /**
- * Cut layer = one `<g id="cut">` with two sibling paths inside it:
- *   - a filled, even-odd path for the closed cuts (`boundary` + major `cut`) — no stroke, so
- *     the silhouette and the apex hole render cleanly with no outline ringing the fill edge
- *     (a fill+stroke compound otherwise paints a thin line halo and double-cuts in Cricut);
- *   - a stroked path for the open `minor-cut` slits — fill `none`, single-pass lines, no
- *     closing Z and no perpendicular caps on the slit's back ends.
- * Keeping both in the same group keeps the cut content together as one drag in Cricut.
+ * Cut layer = one `<g id="cut">` with a single filled even-odd path containing the closed cuts
+ * (`boundary` + major `cut`). `stroke="none"` keeps the silhouette and the apex hole rendering
+ * cleanly — no outline halo ringing the fill edge, no double-cutting in Cricut. The boundary
+ * is already V-notched at each molecule, so the relief wedges are outside the silhouette and
+ * there are no separate slit paths to emit.
  */
 function cutBodyMarkup(cuts: PatternSegment[], indent = ""): string {
   const closed: string[] = [];
@@ -278,12 +271,38 @@ function fmt(n: number): string {
   return Number.isFinite(n) ? String(Math.round(n * 1000) / 1000) : "0";
 }
 
-/** Score lines: only the valley creases (`fold`). Polygon slants are not exported at all. */
+/**
+ * Score lines: the valley creases (`fold`) plus each polygon triangle's two slant edges
+ * (tip→outerL, tip→outerR), which are the face↔molecule fold hinges. Polygon base edges live
+ * on the boundary (cut), not on score.
+ */
 function scoreSegments(net: PatternNet): PatternSegment[] {
-  return net.segments.filter((s) => SCORE_ROLES.includes(s.role));
+  const folds = net.segments.filter((s) => SCORE_ROLES.includes(s.role));
+  return [...folds, ...polygonSlantSegments(net)];
 }
 
-/** Cut segments: only the explicit `boundary`, `cut`, and `minor-cut` roles from the net. */
+/** Polygon slant edges (tip↔outerL and tip↔outerR per face) as score lines. */
+function polygonSlantSegments(net: PatternNet): PatternSegment[] {
+  const out: PatternSegment[] = [];
+  for (const seg of net.segments) {
+    if (seg.role !== "polygon") continue;
+    const verts = parsePathPoints(seg.d);
+    if (verts.length < 3) continue;
+    const [tip, outerL, outerR] = verts;
+    out.push({ role: "fold", d: `M ${tip.x} ${tip.y} L ${outerL.x} ${outerL.y}` });
+    out.push({ role: "fold", d: `M ${tip.x} ${tip.y} L ${outerR.x} ${outerR.y}` });
+  }
+  return out;
+}
+
+function parsePathPoints(d: string): { x: number; y: number }[] {
+  const nums = d.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/g)?.map(Number) ?? [];
+  const out: { x: number; y: number }[] = [];
+  for (let i = 0; i + 1 < nums.length; i += 2) out.push({ x: nums[i]!, y: nums[i + 1]! });
+  return out;
+}
+
+/** Cut segments: the `boundary` (V-notched silhouette) and the major apex-hole `cut`. */
 function cutSegments(net: PatternNet): PatternSegment[] {
   return net.segments.filter((s) => CUT_ROLES.includes(s.role));
 }

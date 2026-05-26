@@ -40,8 +40,9 @@ Open the URL Vite prints (default `http://localhost:5173`). Edit **N**, **L**, *
 - [theory/current-formulas.tex](theory/current-formulas.tex): implementation-synchronized LaTeX formula reference
 - [theory/current-formulas.pdf](theory/current-formulas.pdf): compiled formula sheet with per-formula references
 - [docs/subsystems/README.md](docs/subsystems/README.md): subsystem-by-subsystem code documentation index
-- [docs/subsystems/app-shell.md](docs/subsystems/app-shell.md): app bootstrap, HTML, CSS, and composition root
-- [docs/subsystems/controller.md](docs/subsystems/controller.md): recompute pipeline and view orchestration
+- [docs/subsystems/file-reference.md](docs/subsystems/file-reference.md): detailed file-by-file code reference
+- [docs/subsystems/app-shell/README.md](docs/subsystems/app-shell/README.md): app-shell docs index
+- [docs/subsystems/controller/README.md](docs/subsystems/controller/README.md): controller docs index
 - [docs/subsystems/model/README.md](docs/subsystems/model/README.md): model docs index
 - [docs/subsystems/views/README.md](docs/subsystems/views/README.md): view docs index
 - [docs/subsystems/simulation/README.md](docs/subsystems/simulation/README.md): simulation docs index

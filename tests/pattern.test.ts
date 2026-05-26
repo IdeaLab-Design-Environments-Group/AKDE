@@ -109,13 +109,12 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
     materialThickness: 1,
   });
 
-  it("produces N polygons + N molecules + N folds + major + minor cuts + boundary", () => {
+  it("produces N polygons + N molecules + N folds + major cut + V-notched boundary", () => {
     const net = buildPatternNet(state);
     const polygons = net.segments.filter((s) => s.role === "polygon");
     const molecules = net.segments.filter((s) => s.role === "molecule");
     const folds = net.segments.filter((s) => s.role === "fold");
     const cuts = net.segments.filter((s) => s.role === "cut");
-    const minorCuts = net.segments.filter((s) => s.role === "minor-cut");
     const boundaries = net.segments.filter((s) => s.role === "boundary");
     const N = 4;
 
@@ -123,8 +122,7 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
     expect(molecules.length).toBe(N);
     expect(folds.length).toBe(N);
     expect(cuts.length).toBe(1); // the single major (apex-hole) cut
-    expect(minorCuts.length).toBe(N); // one triangular minor cut (relief wedge) per molecule
-    expect(boundaries.length).toBe(1);
+    expect(boundaries.length).toBe(1); // one V-notched outline (wedges removed)
     expect(net.viewBox[2]).toBeGreaterThan(0);
     expect(net.viewBox[3]).toBeGreaterThan(0);
   });
@@ -204,24 +202,30 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
     }
   });
 
-  it("boundary is a 2N-gon alternating polygon bases (L) and molecule chords (w)", () => {
+  it("boundary is a V-notched 3N-gon: polygon base (L) then V to foldPt then next polygon", () => {
     const net = buildPatternNet(state);
     const boundary = net.segments.find((s) => s.role === "boundary");
     expect(boundary).toBeDefined();
     const pts = parsePathPoints(boundary!.d);
     const N = 4;
-    expect(pts.length).toBe(2 * N);
+    expect(pts.length).toBe(3 * N); // polygon-left, polygon-right, foldPt, repeating
 
     for (let k = 0; k < N; k++) {
-      const triLeft = pts[2 * k];
-      const triRight = pts[2 * k + 1];
-      const nextTriLeft = pts[(2 * k + 2) % (2 * N)];
-      expect(dist(triLeft, triRight)).toBeCloseTo(100, 2);
-      expect(dist(triRight, nextTriLeft)).toBeCloseTo(state.w, 2);
+      const polyL = pts[3 * k];
+      const polyR = pts[3 * k + 1];
+      const foldPt = pts[3 * k + 2];
+      const nextPolyL = pts[(3 * k + 3) % (3 * N)];
+      // each polygon's outer base edge has length L
+      expect(dist(polyL, polyR)).toBeCloseTo(100, 2);
+      // the V-notch tip (foldPt) sits inside the original outer chord (closer to centre than
+      // the chord midpoint between polyR and nextPolyL) — the wedge is removed
+      const chordMid = { x: (polyR.x + nextPolyL.x) / 2, y: (polyR.y + nextPolyL.y) / 2 };
+      const centre = { x: state.s + 24, y: state.s + 24 }; // approx — net is shifted by `margin`
+      expect(dist(foldPt, centre)).toBeLessThan(dist(chordMid, centre));
     }
   });
 
-  it("folds run from outer-chord midpoint to inner-chord midpoint of each molecule", () => {
+  it("folds run from each molecule's wedge-vertex (foldPt) to its inner-chord midpoint", () => {
     const net = buildPatternNet(state);
     const molecules = net.segments.filter((s) => s.role === "molecule");
     const folds = net.segments.filter((s) => s.role === "fold");
@@ -230,17 +234,22 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
     for (let k = 0; k < folds.length; k++) {
       const foldPts = parsePathPoints(folds[k].d);
       expect(foldPts.length).toBe(2);
+      // one endpoint is the inner-chord midpoint; the other (foldPt) sits inside the wedge
+      // region, strictly between the outer-chord midpoint and the inner-chord midpoint
       const molPts = trapezoidFromPath(parsePathPoints(molecules[k].d));
       const outerMid = moleculeTopEdgeMidpoint(molPts);
       const innerMid = {
         x: (molPts[0].x + molPts[1].x) / 2,
         y: (molPts[0].y + molPts[1].y) / 2,
       };
-      const matchesA =
-        eqPt(foldPts[0], outerMid, 1e-6) && eqPt(foldPts[1], innerMid, 1e-6);
-      const matchesB =
-        eqPt(foldPts[1], outerMid, 1e-6) && eqPt(foldPts[0], innerMid, 1e-6);
-      expect(matchesA || matchesB).toBe(true);
+      const inner = foldPts.find((p) => eqPt(p, innerMid, 1e-3));
+      const foldPt = foldPts.find((p) => !eqPt(p, innerMid, 1e-3));
+      expect(inner).toBeDefined();
+      expect(foldPt).toBeDefined();
+      // foldPt is strictly between innerMid and outerMid (the wedge has positive depth)
+      expect(dist(foldPt!, innerMid)).toBeGreaterThan(1);
+      expect(dist(foldPt!, outerMid)).toBeGreaterThan(0);
+      expect(dist(foldPt!, innerMid)).toBeLessThan(dist(outerMid, innerMid) - 1e-6);
     }
   });
 
@@ -257,7 +266,6 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
       expect(net.segments.filter((x) => x.role === "molecule").length).toBe(N);
       expect(net.segments.filter((x) => x.role === "fold").length).toBe(N);
       expect(net.segments.filter((x) => x.role === "cut").length).toBe(1);
-      expect(net.segments.filter((x) => x.role === "minor-cut").length).toBe(N);
       expect(net.segments.filter((x) => x.role === "boundary").length).toBe(1);
     }
   });
@@ -287,10 +295,8 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
       const net = buildPatternNet(s);
       const molecules = net.segments.filter((x) => x.role === "molecule");
       const fills = net.segments.filter((x) => x.role === "molecule-fill");
-      const minorCutSegs = net.segments.filter((x) => x.role === "minor-cut");
 
       expect(molecules.length).toBe(N);
-      expect(minorCutSegs.length).toBe(N); // one triangular minor cut per molecule
 
       for (let k = 0; k < N; k++) {
         const mol = trapezoidFromPath(parsePathPoints(molecules[k].d));
@@ -298,23 +304,16 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
         const topMid = moleculeTopEdgeMidpoint(mol, apex);
         const [innerL, innerR] = moleculeInnerVertices(mol, apex);
         const innerMid = lerpPt(innerL, innerR, 0.5);
+        // cornerCutFoldSegments still gives the underlying slit endpoints (the wedge corners);
+        // they are now consumed by the boundary's V-notch rather than exported as their own paths
         const { minorCuts } = cornerCutFoldSegments(mol, minorLen, apex);
         expect(minorCuts.length).toBe(2);
         for (const minorCut of minorCuts) {
           const cutLen = dist(minorCut.start, minorCut.end);
           expect(cutLen).toBeGreaterThan(0.5);
-          // Cut equals the dihedral-derived target ℓ = w·tan((π−γ)/2). When
-          // ℓ ≥ w/2 the endpoint sits on the topMid→innerMid valley fold;
-          // when ℓ < w/2 it sits along start→innerMid (inside the molecule),
-          // so the slit is visible rather than buried on the outer chord.
           expect(cutLen).toBeLessThanOrEqual(minorLen + 1e-6);
           const onFold = pointOnSegment(minorCut.end, topMid, innerMid, 1e-4);
-          const onAimLine = pointOnSegment(
-            minorCut.end,
-            minorCut.start,
-            innerMid,
-            1e-4,
-          );
+          const onAimLine = pointOnSegment(minorCut.end, minorCut.start, innerMid, 1e-4);
           expect(onFold || onAimLine).toBe(true);
         }
 
@@ -327,43 +326,27 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
     }
   });
 
-  it("each molecule's minor cut is a closed relief triangle gapped inside its outer corners", () => {
+  it("relief wedges are removed by the V-notched boundary (no separate interior minor cuts)", () => {
     const net = buildPatternNet(state);
     const molecules = net.segments.filter((s) => s.role === "molecule");
+    const boundary = net.segments.find((s) => s.role === "boundary")!;
     const expectedLen = computeMinorCutLength(state.gamma, state.w, state.inputs.materialThickness, state.theta, state.rApex);
     const N = molecules.length;
-
     expect(expectedLen).toBeGreaterThan(0);
 
-    const minorCuts = net.segments.filter((s) => s.role === "minor-cut");
-    expect(minorCuts.length).toBe(N); // one triangular wedge per molecule
+    // Boundary V-notches inward at each molecule — exactly N inward vertices (foldPts).
+    const bpts = parsePathPoints(boundary.d);
+    expect(bpts.length).toBe(3 * N);
 
+    // For each molecule, the boundary point at index 3k+2 (the foldPt / V-notch tip) sits
+    // strictly inside the chord between the two adjacent polygon corners (wedge removed).
     for (let k = 0; k < N; k++) {
-      const molPts = trapezoidFromPath(parsePathPoints(molecules[k].d));
-      const apex = moleculeApex(molPts);
-      const { p2, p3 } = moleculeSlantOuterVertices(molPts, apex);
-
-      const tri = parsePathPoints(minorCuts[k].d);
-      expect(tri.length).toBe(3); // a closed triangle (three vertices)
-      expect(minorCuts[k].d.trimEnd().endsWith("Z")).toBe(true); // closed path
-
-      // two vertices sit a small gap INSIDE the outer corners p2/p3 (near them, not on them),
-      // so the triangle is a separate hole, clear of the outer boundary cut
-      expect(tri.some((v) => !eqPt(v, p2, 1e-6) && dist(v, p2) <= 2.5)).toBe(true);
-      expect(tri.some((v) => !eqPt(v, p3, 1e-6) && dist(v, p3) <= 2.5)).toBe(true);
-      expect(tri.every((v) => !eqPt(v, p2, 1e-6) && !eqPt(v, p3, 1e-6))).toBe(true);
-
-      // a real triangular hole: positive area
-      const area =
-        Math.abs(
-          (tri[1].x - tri[0].x) * (tri[2].y - tri[0].y) -
-            (tri[2].x - tri[0].x) * (tri[1].y - tri[0].y),
-        ) / 2;
-      expect(area).toBeGreaterThan(0.5);
-
-      // the wedge's inner apex points toward the fan centre (closer than the two outer vertices)
-      const byApex = [...tri].sort((a, b) => dist(a, apex) - dist(b, apex));
-      expect(dist(byApex[0], apex)).toBeLessThan(dist(byApex[2], apex));
+      const polyR = bpts[3 * k + 1];
+      const foldPt = bpts[3 * k + 2];
+      const nextPolyL = bpts[(3 * k + 3) % (3 * N)];
+      const chordMid = { x: (polyR.x + nextPolyL.x) / 2, y: (polyR.y + nextPolyL.y) / 2 };
+      // foldPt is offset inward from the chord midpoint (the wedge has positive depth)
+      expect(dist(foldPt, chordMid)).toBeGreaterThan(0.1);
     }
   });
 
@@ -409,7 +392,7 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
     }
   });
 
-  it("minor-cut triangle sits in the outer molecule region, beyond the inner chord (N=3,5,6,7)", () => {
+  it("the V-notch tip on the boundary stays in the outer molecule region (N=3,5,6,7)", () => {
     for (const N of [3, 5, 6, 7]) {
       const s = computeState({
         edgeCount: N,
@@ -419,8 +402,9 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
       });
       const net = buildPatternNet(s);
       const molecules = net.segments.filter((x) => x.role === "molecule");
-      const minorCutSegs = net.segments.filter((x) => x.role === "minor-cut");
-      expect(minorCutSegs.length).toBe(N);
+      const boundary = net.segments.find((x) => x.role === "boundary")!;
+      const bpts = parsePathPoints(boundary.d);
+      expect(bpts.length).toBe(3 * N);
 
       for (let k = 0; k < N; k++) {
         const mol = trapezoidFromPath(parsePathPoints(molecules[k].d));
@@ -429,12 +413,9 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
         const innerMid = lerpPt(innerL, innerR, 0.5);
         const dInner = dist(innerMid, apex);
 
-        // every vertex of the relief triangle is farther from the fan apex than the inner chord
-        const tri = parsePathPoints(minorCutSegs[k].d);
-        expect(tri.length).toBe(3);
-        for (const v of tri) {
-          expect(dist(v, apex)).toBeGreaterThan(dInner + 1e-6);
-        }
+        // the foldPt (V-notch tip on the boundary) is farther from the fan apex than the inner chord
+        const foldPt = bpts[3 * k + 2];
+        expect(dist(foldPt, apex)).toBeGreaterThan(dInner + 1e-6);
 
         const { p2, p3 } = moleculeSlantOuterVertices(mol, apex);
         expect(dist(p2, apex)).toBeGreaterThan(dInner + 1e-6);
@@ -531,55 +512,12 @@ describe("buildPatternNet (Figure 2 apex-centered fan)", () => {
     }
   });
 
-  it("SVG minor-cut triangles have positive area for N=3..8 at L=100, H≈70.7", () => {
-    const L = 100;
-    const H = L / Math.SQRT2;
-
-    for (const N of [3, 4, 5, 6, 7, 8]) {
-      const s = computeState({
-        edgeCount: N,
-        edgeLength: L,
-        totalCurvature: H,
-        materialThickness: 1,
-      });
-      const minorLen = computeMinorCutLength(s.gamma, s.w, s.inputs.materialThickness, s.theta, s.rApex);
-      expect(minorLen).toBeGreaterThan(0);
-
-      const net = buildPatternNet(s);
-      const molecules = net.segments.filter((x) => x.role === "molecule");
-      const minorCutSegs = net.segments.filter((x) => x.role === "minor-cut");
-
-      expect(minorCutSegs.length).toBe(N);
-
-      for (let k = 0; k < N; k++) {
-        const mol = trapezoidFromPath(parsePathPoints(molecules[k].d));
-        const apex = moleculeApex(mol);
-        const { p2, p3 } = moleculeSlantOuterVertices(mol, apex);
-
-        const tri = parsePathPoints(minorCutSegs[k].d);
-        expect(tri.length).toBe(3); // closed relief triangle
-        // gapped inside the outer corners (separate from the boundary), not on them
-        expect(tri.some((v) => !eqPt(v, p2, 1e-6) && dist(v, p2) <= 2.5)).toBe(true);
-        expect(tri.some((v) => !eqPt(v, p3, 1e-6) && dist(v, p3) <= 2.5)).toBe(true);
-        // positive area: a real triangular hole
-        const area =
-          Math.abs(
-            (tri[1].x - tri[0].x) * (tri[2].y - tri[0].y) -
-              (tri[2].x - tri[0].x) * (tri[1].y - tri[0].y),
-          ) / 2;
-        expect(area).toBeGreaterThan(0);
-      }
-    }
-  });
-
   it("paint order: polygons, then molecules, then creases (fold/cut), then boundary", () => {
     const net = buildPatternNet(state);
     const roles = net.segments.map((s) => s.role);
     const firstMolecule = roles.indexOf("molecule");
     const lastPolygon = roles.lastIndexOf("polygon");
-    const firstFoldOrCut = roles.findIndex(
-      (r) => r === "fold" || r === "cut" || r === "minor-cut",
-    );
+    const firstFoldOrCut = roles.findIndex((r) => r === "fold" || r === "cut");
     const boundary = roles.indexOf("boundary");
 
     expect(firstMolecule).toBeGreaterThan(lastPolygon);

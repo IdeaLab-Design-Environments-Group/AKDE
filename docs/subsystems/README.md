@@ -4,10 +4,13 @@ This folder splits the codebase documentation by subsystem instead of trying to 
 
 ## Documents
 
-- [app-shell.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/app-shell.md)
+- [file-reference.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/file-reference.md)
+  - Detailed file-by-file code reference: exports, internal sequencing, contracts, and test coverage.
+
+- [app-shell/README.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/app-shell/README.md)
   - Browser entrypoint, DOM bootstrap, static HTML, CSS, and top-level composition.
 
-- [controller.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/controller.md)
+- [controller/README.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/controller/README.md)
   - Recompute pipeline, validation flow, view orchestration, and derived-field formatting.
 
 - [model/README.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/model/README.md)
@@ -29,13 +32,14 @@ This folder splits the codebase documentation by subsystem instead of trying to 
 
 Recommended order for onboarding:
 
-1. `app-shell.md`
-2. `controller.md`
-3. `model/README.md`
-4. `views/README.md`
-5. `simulation/README.md`
-6. `deployment/README.md`
-7. `tests/README.md`
+1. `file-reference.md`
+2. `app-shell/README.md`
+3. `controller/README.md`
+4. `model/README.md`
+5. `views/README.md`
+6. `simulation/README.md`
+7. `deployment/README.md`
+8. `tests/README.md`
 
 ## Design rule
 

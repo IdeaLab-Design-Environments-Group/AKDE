@@ -8,7 +8,6 @@ export type PatternStrokeRole =
   | "molecule-fill"
   | "molecule"
   | "cut"
-  | "minor-cut"
   | "fold";
 
 export interface PatternSegment {
@@ -27,8 +26,6 @@ interface Point2 {
   y: number;
 }
 
-/** Gap (mm) left between each minor cut and the outer boundary, so they stay separate lines. */
-const MINOR_CUT_GAP = 2;
 
 /**
  * Figure 2 (DETC) apex-centered fan with major cut at the closure vertex:
@@ -148,20 +145,35 @@ export function buildPatternNet(state: KirigamiState): PatternNet {
     state.theta,
     state.rApex,
   );
+
+  // Pre-compute the relief-wedge convergence point (foldPt) per molecule. The outer wedge —
+  // bounded by the outer chord (between adjacent polygon corners) and the two slit lines that
+  // converge at foldPt — is REMOVED from the silhouette: the boundary outline jogs inward to
+  // foldPt at each molecule instead of running the chord. So the wedge isn't material at all,
+  // not an interior triangle "resting in the body".
+  const foldPtS: Point2[] = [];
+  for (let k = 0; k < N; k++) {
+    const mol = moleculesS[k];
+    const molApex = moleculeApex(mol);
+    const { foldAtP2 } = moleculeMinorCutEndpoints(mol, minorLen, molApex);
+    // For the active fold-reach formula the two slit endpoints converge to one point; foldAtP2
+    // and foldAtP3 coincide. Use foldAtP2 as the wedge-vertex / V-notch tip.
+    foldPtS.push(foldAtP2);
+  }
+
   for (let k = 0; k < N; k++) {
     const mol = moleculesS[k];
     const polyTipL = polyTips[k];
     const polyTipR = polyTips[(k + 1) % N];
+    // Fill traces the wedge-excluded shape (matches the V-notched silhouette).
     segments.push({
       role: "molecule-fill",
       d: closedPolyline(
-        injectPolyTipsCW(
-          moleculeFillPolygon(mol, minorLen, apex),
-          polyTipL,
-          polyTipR,
-        ),
+        injectPolyTipsCW(moleculeFillPolygon(mol, minorLen, apex), polyTipL, polyTipR),
       ),
     });
+    // Outline keeps the full trapezoid + polyTips so the canvas legend/helpers still see the
+    // four molecule corners (the boundary V-notches the silhouette regardless).
     segments.push({
       role: "molecule",
       d: closedPolyline(
@@ -181,45 +193,28 @@ export function buildPatternNet(state: KirigamiState): PatternNet {
     d: closedPolyline(majorCutPts),
   });
 
-  // Valley creases + minor cuts per molecule (DETC Figure 2 / §6).
-  // Cuts render after all molecule fills; use each molecule's slant intersection as apex.
+  // Valley creases per molecule. Shortened to start at foldPt (the wedge convergence) rather
+  // than the outer-chord midpoint — the outer half of the centreline is in the removed wedge.
   for (let k = 0; k < N; k++) {
     const mol = moleculesS[k];
     const molApex = moleculeApex(mol);
-    const { valleyFold, minorCuts } = cornerCutFoldSegments(
-      mol,
-      minorLen,
-      molApex,
-    );
+    const [innerL, innerR] = moleculeInnerVertices(mol, molApex);
+    const innerMid = lerp(innerL, innerR, 0.5);
+    const foldPt = foldPtS[k];
     segments.push({
       role: "fold",
-      d: `M ${valleyFold.start.x} ${valleyFold.start.y} L ${valleyFold.end.x} ${valleyFold.end.y}`,
+      d: `M ${foldPt.x} ${foldPt.y} L ${innerMid.x} ${innerMid.y}`,
     });
-    if (minorLen > 0 && minorCuts.length >= 2) {
-      const [c1, c2] = minorCuts;
-      const len1 = dist(c1.start, c1.end);
-      const len2 = dist(c2.start, c2.end);
-      if (len1 > 1e-9 && len2 > 1e-9) {
-        // Cut the relief wedge as a closed TRIANGLE (a triangular hole that drops out), not two
-        // open slits. Two vertices are the molecule's outer corners pulled a small gap inward
-        // (so the triangle stays separate from the outer boundary cut); the third is the inner
-        // convergence point of the two slits on the valley fold.
-        const A = lerp(c1.start, c1.end, Math.min(MINOR_CUT_GAP, 0.3 * len1) / len1);
-        const B = lerp(c2.start, c2.end, Math.min(MINOR_CUT_GAP, 0.3 * len2) / len2);
-        const C = lerp(c1.end, c2.end, 0.5);
-        segments.push({
-          role: "minor-cut",
-          d: closedPolyline([A, B, C]),
-        });
-      }
-    }
   }
 
-  // Outer boundary: 2N-gon at radius s alternating polygon outer chord (L) and molecule outer chord (w).
+  // Outer boundary: 3N-gon V-notched at each molecule. The path threads polyOuterL[k] →
+  // polyOuterR[k] (polygon base) → foldPt[k] (V-notch tip) → polyOuterL[k+1] (next polygon),
+  // so the relief wedge is OUTSIDE the silhouette — fully cut away in one outline path.
   const boundaryPts: Point2[] = [];
   for (let k = 0; k < N; k++) {
     boundaryPts.push(polyOuterLS[k]);
     boundaryPts.push(polyOuterRS[k]);
+    boundaryPts.push(foldPtS[k]);
   }
   segments.push({
     role: "boundary",

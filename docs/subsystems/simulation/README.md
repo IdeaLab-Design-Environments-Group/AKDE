@@ -21,3 +21,6 @@ This folder documents the forward-folding simulation subsystem.
 
 - [barrel-and-support.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/simulation/barrel-and-support.md)
   - Barrel behavior, vector helpers, and architecture references.
+
+- [file-catalog.md](/Users/emredayangac/Documents/AKDE/docs/subsystems/simulation/file-catalog.md)
+  - Detailed file-by-file breakdown of the simulation subsystem.
