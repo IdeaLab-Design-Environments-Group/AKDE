@@ -66,8 +66,12 @@ describe("buildCricutSvgFiles", () => {
     expect(body).toContain('stroke="none"');
     expect((body.match(/M/g) ?? []).length).toBe(closedCount);
 
-    // score stays as stroked lines, blue, folds only — no polygon slants
-    expect((score.svg.match(/<path /g) ?? []).length).toBe(scoreCount);
+    // score = ONE compound stroked path with `scoreCount` subpaths (one `M` per line). The
+    // compound shape keeps Cricut from auto-arranging each line separately on the mat.
+    const scorePaths = score.svg.match(/<path [^>]*\/>/g) ?? [];
+    expect(scorePaths.length).toBe(1);
+    const scoreD = scorePaths[0]!.match(/ d="([^"]+)"/)![1]!;
+    expect((scoreD.match(/M/g) ?? []).length).toBe(scoreCount);
     expect(score.svg).toContain('id="score"');
     expect(score.svg).toContain(SCORE_COLOR);
 
@@ -96,10 +100,13 @@ describe("buildCricutSvgFiles", () => {
     const polygons = net.segments.filter((s) => s.role === "polygon");
     expect(polygons.length).toBeGreaterThan(0);
 
-    // every polygon emits two slant lines into score, inset on both ends
+    // every polygon emits two slant lines into score, inset on both ends. Score is one
+    // compound `<path>` (so Cricut keeps it registered with the cut layer); count its
+    // subpaths via `M` tokens.
     const folds = net.segments.filter((s) => s.role === "fold").length;
-    const totalScorePaths = (score.svg.match(/<path /g) ?? []).length;
-    expect(totalScorePaths - folds).toBe(2 * polygons.length);
+    const scoreD = score.svg.match(/<path d="([^"]+)"/)![1]!;
+    const subpathCount = (scoreD.match(/M/g) ?? []).length;
+    expect(subpathCount - folds).toBe(2 * polygons.length);
 
     for (const poly of polygons) {
       const [tip, outerL, outerR] = pts(poly.d);
