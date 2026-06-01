@@ -34,7 +34,11 @@
       "Bash(npm view *)",
       "Bash(npm publish *)",
       "Bash(chmod 600 .npmrc)",
-      "Bash(node_modules/.bin/vite-node scripts/_check_fkld.ts)"
+      "Bash(node_modules/.bin/vite-node scripts/_check_fkld.ts)",
+      "Bash(git pull *)",
+      "Bash(git merge *)",
+      "Bash(git checkout *)",
+      "Bash(git add *)"
     ]
   }
 }

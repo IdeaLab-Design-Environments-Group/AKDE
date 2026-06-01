@@ -233,10 +233,13 @@ function svgWrap(net: PatternNet, body: string): string {
 }
 
 /**
- * Emit each segment as its own stroked line `<path>` (fill `none`) inside an identified group.
- * Per-path `fill`/`stroke`/`stroke-width` are set explicitly (not only on the group) so each cut
- * or score line imports into Cricut as a distinct, individually selectable line — never welded
- * into one compound shape, and robust to the group wrapper being flattened.
+ * Emit all segments as ONE compound stroked `<path>` (subpaths joined by their own `M`),
+ * wrapped in an identified `<g>`. Cricut imports separate `<path>` elements as independent
+ * objects and auto-arranges them on the mat — the shapes stay correct but their absolute
+ * positions scatter, so the score lines drift away from the cut layer. Combining the lines
+ * into one compound path imports as a single registered object: same trick that keeps the
+ * cut layer aligned. Subpaths begin with `M` (moveto), so no spurious connecting line is
+ * drawn between them; `fill="none"` keeps open subpaths from rendering as filled regions.
  */
 function linesMarkup(
   segs: PatternSegment[],
@@ -244,17 +247,12 @@ function linesMarkup(
   color: string,
   indent = "",
 ): string {
-  const paths = segs
-    .map(
-      (s) =>
-        `${indent}  <path d="${s.d}" fill="none" stroke="${color}" ` +
-        `stroke-width="${LINE_STROKE_WIDTH}" />`,
-    )
-    .join("\n");
+  const d = segs.map((s) => s.d.trim()).join(" ");
   return (
     `${indent}<g id="${id}" fill="none" stroke="${color}" ` +
     `stroke-width="${LINE_STROKE_WIDTH}">\n` +
-    `${paths}\n` +
+    `${indent}  <path d="${d}" fill="none" stroke="${color}" ` +
+    `stroke-width="${LINE_STROKE_WIDTH}" />\n` +
     `${indent}</g>`
   );
 }
