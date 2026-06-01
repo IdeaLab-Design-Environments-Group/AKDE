@@ -1,5 +1,6 @@
 export { InputsPanel, type InputsChangeHandler } from "./inputs-panel.js";
 export { ChecklistView } from "./checklist-view.js";
+export { FkldMetadataView } from "./fkld-metadata-view.js";
 export {
   PatternCanvas,
   type PatternNet,

@@ -71,6 +71,9 @@ export type {
   ExportPayload,
 } from "./svg-export.js";
 
+export { buildFkldDownload, buildFkldFile } from "./fkld-export.js";
+export type { FkldDownload, FkldFile } from "./fkld-export.js";
+
 export {
   CONSTRAINT_EPS,
   evaluateC1,

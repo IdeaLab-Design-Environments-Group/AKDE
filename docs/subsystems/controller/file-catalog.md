@@ -95,6 +95,15 @@ Dependency bundle required by the controller:
 This object keeps construction explicit. The controller does not query the DOM
 for these views.
 
+### Dependency Direction
+
+The controller depends on concrete view instances, but the views do not import
+the controller class back. The dependency graph is intentionally one-way:
+
+- views expose methods
+- controller calls those methods
+- shell code wires them together
+
 ### Internal State
 
 - `state: KirigamiState | null`
@@ -107,6 +116,15 @@ for these views.
   - Tracks scheduled recompute.
 - `debounceMs`
   - Stored debounce duration.
+
+### State Semantics
+
+- `state` and `constraints` are always kept aligned.
+- `state === null` implies:
+  - `constraints.length === 0`
+  - the pattern render receives `null`
+  - export must return `null`
+- constraints are recomputed from scratch on every valid recompute.
 
 ### Constructor Sequence
 
@@ -132,6 +150,17 @@ pattern.
 - `recompute()`
   - Main pipeline entry point.
 
+### `getExportPayload()` Detail
+
+This method intentionally rebuilds export data on demand instead of caching the
+last artifact.
+
+Implications:
+
+- export always reflects the latest valid state
+- export uses the same `buildPatternNet(...)` path as the visible pattern
+- stale payload caching bugs are avoided
+
 ### `recompute()` Pipeline
 
 1. Pull inputs from `inputsPanel.getInputs()`.
@@ -147,6 +176,15 @@ pattern.
 
 Validation precedes `computeState` so the UI can show field-level errors without
 attempting invalid geometry.
+
+### What `recompute()` Does Not Do
+
+- It does not catch `computeState(...)` exceptions.
+- It does not keep rendering the previous valid state after validation fails.
+- It does not diff old vs new state before rendering.
+
+The controller deliberately favors full recompute simplicity over incremental
+state reconciliation.
 
 ### `scheduleRecompute()`
 
@@ -169,6 +207,16 @@ Fan-out point to concrete views:
 Pattern generation happens here through `buildPatternNet(this.state)` only when
 `state` is non-null. Invalid inputs render a null pattern.
 
+### Render Fan-Out Contract
+
+Each view receives the narrowest shape it needs:
+
+- inputs panel gets a controller-owned render model
+- checklist gets constraint rows
+- pattern canvas gets current state plus a rendered `PatternNet`
+
+The controller is therefore an adapter, not just a dispatcher.
+
 ### `buildInputsPanelModel(inputs)`
 
 Builds the input-panel render model:
@@ -179,6 +227,11 @@ Builds the input-panel render model:
 
 The function intentionally mirrors the current two validation checks instead of
 asking `validateInputs` which field failed.
+
+That duplication is deliberate:
+
+- `validateInputs(...)` answers whether the whole input set is valid
+- `buildInputsPanelModel(...)` answers which visible field should show which message
 
 ### `buildDerivedFields(state)`
 
@@ -198,6 +251,12 @@ Defines the visible derived row order and labels:
 
 The model owns the values; the controller owns this display ordering.
 
+The controller also owns label wording, including:
+
+- HTML-safe Greek/math labels
+- subscript markup decisions
+- which derived fields are promoted to user-visible rows
+
 ### MVC Boundary
 
 This file may orchestrate model and view calls, but it should not:
@@ -207,3 +266,13 @@ This file may orchestrate model and view calls, but it should not:
 - decide SVG path geometry
 - duplicate export serialization
 - run simulation stepping
+
+### Files Most Sensitive To Controller Changes
+
+When this file changes, the most likely collateral edits are:
+
+- [kirigami/view/inputs-panel.ts](/Users/emredayangac/Documents/AKDE/kirigami/view/inputs-panel.ts)
+- [kirigami/view/checklist-view.ts](/Users/emredayangac/Documents/AKDE/kirigami/view/checklist-view.ts)
+- [kirigami/view/pattern-canvas.ts](/Users/emredayangac/Documents/AKDE/kirigami/view/pattern-canvas.ts)
+- [app/main.ts](/Users/emredayangac/Documents/AKDE/app/main.ts)
+- tests asserting derived field wording or recompute behavior

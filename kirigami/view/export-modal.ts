@@ -3,6 +3,7 @@ import type {
   ExportArchive,
   ExportPayload,
 } from "../model/svg-export.js";
+import type { FkldDownload } from "../model/fkld-export.js";
 
 /** Returns the current export payload (previews + archive) when the modal opens. */
 export type ExportProvider = () => ExportPayload | null;
@@ -22,6 +23,7 @@ export class ExportModal {
   private provider: ExportProvider | null = null;
   private archive: ExportArchive | null = null;
   private combined: CricutSvgFile | null = null;
+  private fkld: FkldDownload | null = null;
 
   constructor() {
     this.trigger = document.createElement("button");
@@ -56,6 +58,7 @@ export class ExportModal {
           </div>
         </div>
         <footer class="export-modal-footer">
+          <button type="button" class="export-svg-btn export-svg-btn--secondary export-fkld-btn">FKLD (.fkld)</button>
           <button type="button" class="export-svg-btn export-svg-btn--secondary export-single-btn">Single SVG</button>
           <button type="button" class="export-svg-btn">Cut + score (zip)</button>
         </footer>
@@ -67,11 +70,14 @@ export class ExportModal {
       .querySelector(".export-modal-close")!
       .addEventListener("click", () => this.close());
     this.overlay
-      .querySelector(".export-svg-btn:not(.export-single-btn)")!
+      .querySelector(".export-svg-btn:not(.export-single-btn):not(.export-fkld-btn)")!
       .addEventListener("click", () => this.exportSvg());
     this.overlay
       .querySelector(".export-single-btn")!
       .addEventListener("click", () => this.exportCombined());
+    this.overlay
+      .querySelector(".export-fkld-btn")!
+      .addEventListener("click", () => this.exportFkld());
     this.overlay.addEventListener("click", (e) => {
       if (e.target === this.overlay) this.close();
     });
@@ -109,9 +115,10 @@ export class ExportModal {
     set("both", payload?.previews.both ?? "");
     this.archive = payload?.archive ?? null;
     this.combined = payload?.combined ?? null;
+    this.fkld = payload?.fkld ?? null;
 
     const zipBtn = this.overlay.querySelector(
-      ".export-svg-btn:not(.export-single-btn)",
+      ".export-svg-btn:not(.export-single-btn):not(.export-fkld-btn)",
     ) as HTMLButtonElement | null;
     if (zipBtn) zipBtn.disabled = this.archive === null;
 
@@ -119,6 +126,11 @@ export class ExportModal {
       ".export-single-btn",
     ) as HTMLButtonElement | null;
     if (singleBtn) singleBtn.disabled = this.combined === null;
+
+    const fkldBtn = this.overlay.querySelector(
+      ".export-fkld-btn",
+    ) as HTMLButtonElement | null;
+    if (fkldBtn) fkldBtn.disabled = this.fkld === null;
   }
 
   private exportSvg(): void {
@@ -130,6 +142,12 @@ export class ExportModal {
   private exportCombined(): void {
     if (!this.combined) return;
     downloadBlob(this.combined.filename, this.combined.svg, "image/svg+xml");
+    this.close();
+  }
+
+  private exportFkld(): void {
+    if (!this.fkld) return;
+    downloadBlob(this.fkld.filename, this.fkld.text, "application/json");
     this.close();
   }
 }

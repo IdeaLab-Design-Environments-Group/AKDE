@@ -29,6 +29,15 @@ runtime TypeScript app and loads the app stylesheet and entry module.
 - `.app-header` is optional in code but expected in the normal shell. If present, `main.ts` appends the `3D Sim` and `Export` controls there.
 - The footer is static explanatory markup. It is not read by TypeScript.
 
+### Why The HTML Is So Small
+
+The file deliberately avoids pre-rendering any data-driven panels. All
+state-bearing UI is created from TypeScript so:
+
+- controller wiring is centralized
+- the app does not depend on prewritten DOM fragments staying in sync
+- refactors only need to preserve a few stable anchors
+
 ### What Belongs Here
 
 - Stable page metadata.
@@ -82,12 +91,32 @@ views, creates the controller, and wires modal providers.
    - Export modal pulls `controller.getExportPayload()`.
    - Simulation modal pulls `controller.getState()`.
 
+### Objects Created Here
+
+Persistent startup objects:
+
+- `InputsPanel`
+- `ChecklistView`
+- `PatternCanvas`
+- `KirigamiController`
+- `ExportModal`
+- `SimModal`
+
+There is no global service locator; `main.ts` creates and connects everything
+explicitly.
+
 ### Important Details
 
 - View construction happens before controller construction because the controller needs concrete view objects.
 - Modal provider wiring happens after controller construction because both providers close over the controller instance.
 - The modals are pull-based. The controller does not push into modals and does not know when they open.
 - `main.ts` does not call model functions directly. Model access flows through the controller.
+
+### Bundle-Level Implication
+
+`main.ts` statically imports the controller and base views, but the 3D viewer
+still lazy-loads because `SimModal` dynamically imports `sim-canvas.ts` only
+when opened.
 
 ### Change Risks
 
@@ -177,6 +206,15 @@ with this file.
 - `InputsPanel` relies on hidden error elements becoming visible when `hidden` is removed.
 - `ChecklistView` relies on `constraint-ok` and `constraint-fail` to communicate pass/fail state visually.
 - `ExportModal` and `SimModal` append overlays to `document.body`, so overlay styles cannot be scoped under `#app`.
+
+### Relationship To Runtime Views
+
+This stylesheet is the visual contract for:
+
+- layout classes created by `main.ts`
+- class names emitted by the form and checklist views
+- role-based SVG classes emitted by `PatternCanvas`
+- modal class names created by `ExportModal` and `SimModal`
 
 ### Safe Changes
 

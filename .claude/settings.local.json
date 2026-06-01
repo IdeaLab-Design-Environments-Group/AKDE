@@ -16,7 +16,25 @@
       "Bash(npx vite-node *)",
       "Bash(npx tsx *)",
       "Bash(echo \"tsc: $?\")",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(ls /Users/emredayangac/Documents/)",
+      "Bash(mkdir -p /Users/emredayangac/Documents/FKLD && ls /Users/emredayangac/Documents/FKLD)",
+      "Bash(npm test *)",
+      "Bash(npx jest *)",
+      "Bash(cd /Users/emredayangac/Documents/FKLD && mkdir -p examples/fold-upstream src/fold/bin src/fold/doc && cp /Users/emredayangac/Documents/fold-reference/examples/*.fold examples/fold-upstream/ && cp /Users/emredayangac/Documents/fold-reference/bin/fold-convert.js src/fold/bin/fold-convert.js && cp /Users/emredayangac/Documents/fold-reference/doc/spec.md src/fold/doc/spec.md && cp /Users/emredayangac/Documents/fold-reference/doc/api.md src/fold/doc/api.md && echo \"=== FKLD/src/fold/ ===\" && ls -R src/fold/ && echo && echo \"=== FKLD/examples/ ===\" && ls -R examples/)",
+      "Bash(rm -f test/sanity.coffee)",
+      "Bash(rm -rf lib)",
+      "Bash(python3 -c \"import json; html = open\\('examples/viewer/index.html'\\).read\\(\\); start = html.index\\('id=\\\\\"embedded-example\\\\\" type=\\\\\"application/json\\\\\">'\\) + len\\('id=\\\\\"embedded-example\\\\\" type=\\\\\"application/json\\\\\">'\\); end = html.index\\('</script>', start\\); data = json.loads\\(html[start:end].strip\\(\\)\\); print\\(f'Embedded FKLD parses OK: {len\\(data[\\\\\"vertices_coords\\\\\"]\\)} vertices, {len\\(data[\\\\\"faces_vertices\\\\\"]\\)} faces, {len\\(data[\\\\\"edges_vertices\\\\\"]\\)} edges'\\); print\\(f'Universal block: scale={data[\\\\\"fkld:meta_kirigami\\\\\"][\\\\\"scale\\\\\"]}, app={data[\\\\\"fkld:meta_kirigami\\\\\"][\\\\\"application\\\\\"]}'\\)\")",
+      "Bash(npx coffee *)",
+      "Bash(python3 -c ' *)",
+      "Bash(npm pack *)",
+      "Bash(npm whoami *)",
+      "Bash(npm config *)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('  name:    '+p.name\\); console.log\\('  version: '+p.version\\); console.log\\('  author:  '+p.author\\); console.log\\('  license: '+p.license\\); console.log\\('  repo:    '+\\(p.repository?.url||'\\(none\\)'\\)\\);\")",
+      "Bash(npm view *)",
+      "Bash(npm publish *)",
+      "Bash(chmod 600 .npmrc)",
+      "Bash(node_modules/.bin/vite-node scripts/_check_fkld.ts)"
     ]
   }
 }

@@ -2,6 +2,7 @@ import { createController } from "@kirigami/controller/kirigami-controller.js";
 import {
   ChecklistView,
   ExportModal,
+  FkldMetadataView,
   InputsPanel,
   PatternCanvas,
   SimModal,
@@ -21,11 +22,16 @@ app.append(inputsMount, checklistMount, patternMount);
 
 const inputsPanel = new InputsPanel(inputsMount);
 const checklistView = new ChecklistView(checklistMount);
+// FKLD metadata panel stacks beneath the constraint checklist in the
+// same column so the file's contents are visible next to the rules they
+// must satisfy.
+const fkldMetadataView = new FkldMetadataView(checklistMount);
 const patternCanvas = new PatternCanvas(patternMount);
 
 const controller = createController({
   inputsPanel,
   checklistView,
+  fkldMetadataView,
   patternCanvas,
 });
 

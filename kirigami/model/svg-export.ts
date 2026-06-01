@@ -1,4 +1,5 @@
 import type { PatternNet, PatternSegment, PatternStrokeRole } from "./pattern.js";
+import type { FkldDownload } from "./fkld-export.js";
 import { createZip } from "./zip.js";
 
 /**
@@ -72,6 +73,13 @@ export interface ExportPayload {
   archive: ExportArchive;
   /** One combined SVG where stroke colour denotes the operation, or null when empty. */
   combined: CricutSvgFile | null;
+  /**
+   * FKLD JSON download — the full mesh topology + per-edge molecule
+   * parameters serialized as a FOLD-superset file. Null when the
+   * pattern is empty (matches `archive` / `combined`). The controller
+   * populates this so the modal stays unaware of FoldNet internals.
+   */
+  fkld: FkldDownload | null;
 }
 
 /** One file per operation (cut, score). Layers with no paths are omitted. */
@@ -164,7 +172,14 @@ export function buildCricutPreviews(net: PatternNet): CricutPreviews {
   };
 }
 
-/** Net → full export payload (previews + zip), or null when there is nothing to export. */
+/**
+ * Net → SVG-side export payload (previews + zip + combined), or null when
+ * there is nothing to export. `fkld` is initialised to null here — the
+ * controller fills it in via `buildFkldDownload(state)` because that
+ * helper needs the full KirigamiState, not just the flat PatternNet.
+ * Keeping the SVG and FKLD pipelines split in this module avoids a
+ * dependency from `svg-export` onto FoldNet.
+ */
 export function buildExportPayload(
   net: PatternNet,
   baseName = "akde-kirigami",
@@ -175,6 +190,7 @@ export function buildExportPayload(
     previews: buildCricutPreviews(net),
     archive,
     combined: buildCombinedCricutSvg(net, baseName),
+    fkld: null,
   };
 }
 

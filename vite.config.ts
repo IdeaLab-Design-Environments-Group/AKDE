@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { resolve } from "node:path";
+import { coffeePlugin } from "./scripts/vite-plugin-coffee.js";
 
 // GitHub Pages serves this project repo under /<repo>/, so production assets need that base
 // path. Dev keeps "/" so `npm run dev` works at the root. Override with VITE_BASE if the repo
@@ -10,9 +11,11 @@ export default defineConfig(({ command }) => ({
   base: command === "build" ? REPO_BASE : "/",
   root: "app",
   publicDir: false,
+  plugins: [coffeePlugin()],
   resolve: {
     alias: {
       "@kirigami": resolve(__dirname, "kirigami"),
+      "@fkld": resolve(__dirname, "fkld"),
     },
   },
   build: {

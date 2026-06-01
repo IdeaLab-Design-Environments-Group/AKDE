@@ -93,6 +93,18 @@ Constraint IDs are fixed to:
 The checklist view renders this object directly, so labels and messages are
 part of user-facing behavior.
 
+### Cross-Subsystem Reach
+
+`types.ts` is consumed by:
+
+- controller code
+- DOM views
+- export code
+- simulation builders
+- tests
+
+That is why shape changes here have such a wide blast radius.
+
 ## [kirigami/model/geometry.ts](/Users/emredayangac/Documents/AKDE/kirigami/model/geometry.ts)
 
 ### Purpose
@@ -242,6 +254,15 @@ It returns a `KirigamiDerived` object.
 - `rApex` is clamped for implementation stability.
 - `computeDerived(...)` uses the active fold-reach formula directly.
 
+### High-Risk Change Zones
+
+The most sensitive edits in this file are:
+
+- changing the meaning of `totalCurvature`
+- changing the active `MINOR_CUT_FORMULA`
+- changing `defaultInputs()`
+- changing the order or composition of fields returned by `computeDerived(...)`
+
 ## [kirigami/model/constraints.ts](/Users/emredayangac/Documents/AKDE/kirigami/model/constraints.ts)
 
 ### Purpose
@@ -347,6 +368,9 @@ Rejects raw input states before geometry is computed.
 The function returns only one string, not a field map. The controller currently
 knows how to map the two possible errors onto the two fields.
 
+That makes the file intentionally simple, but it is not yet a general
+validation framework.
+
 ## [kirigami/model/pattern.ts](/Users/emredayangac/Documents/AKDE/kirigami/model/pattern.ts)
 
 ### Purpose
@@ -418,6 +442,16 @@ Main construction algorithm:
 15. Emit each valley `fold`.
 16. Emit each minor-cut relief as a closed `minor-cut` triangle with a small outer gap.
 17. Emit outer `boundary` last.
+
+### Paint-Order Dependency
+
+The segment emission order is important:
+
+- fills are emitted before crease/cut lines
+- the outer boundary is emitted last
+
+Tests assert this because both readability and export assumptions depend on
+stable ordering.
 
 ### Molecule Helpers
 
@@ -628,3 +662,6 @@ Public barrel for model-layer imports.
 Tests and cross-layer code often import from this file. Removing or renaming
 exports here can break callers even when the underlying implementation file is
 unchanged.
+
+This barrel is also what keeps higher-level imports short and stable during
+refactors.

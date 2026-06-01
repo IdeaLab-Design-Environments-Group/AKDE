@@ -12,8 +12,17 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@kirigami/*": ["kirigami/*"]
+      "@kirigami/*": ["kirigami/*"],
+      "@fkld/*": ["fkld/*"]
     }
   },
-  "include": ["app/**/*", "kirigami/**/*", "tests/**/*", "vite.config.ts", "vitest.config.ts"]
+  "include": [
+    "app/**/*",
+    "kirigami/**/*",
+    "fkld/**/*",
+    "scripts/**/*",
+    "tests/**/*",
+    "vite.config.ts",
+    "vitest.config.ts"
+  ]
 }
