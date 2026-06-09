@@ -1,4 +1,4 @@
-# AKDE — Kirigami pattern planner
+Kirigami pattern planner
 
 Uniform edge-molecule kirigami patterns from **edge count** \(N\), **edge length** \(L\) (mm), **outer edge length** \(L_o\) (mm), **vertical apex altitude** \(K_{\mathrm{tot}} = H\) (mm), and **material thickness** \(T\) (mm). The default template is a hexagonal pyramid (N = 6). See [theory/plan.md](theory/plan.md) for theory and architecture.
 
